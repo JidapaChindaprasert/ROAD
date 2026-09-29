@@ -143,6 +143,22 @@
     2. Click-to-report with reverse-geocoded road name and Action Card redirecting to `/report/new`.
     3. GPS coordinate parser + dialog modal with Bangkok presets (Siam, Asoke, Victory Monument, Sanam Luang).
     4. Interactive report markers with status badges, tooltips, and full sync with the community directory.
+- **Fully Functional Real Report Flow (`/report/new`)**:
+  - **Server-Side Submission Endpoint (`POST /api/reports`)**:
+    - Strict Zod validation via `submitReportSchema`.
+    - Handles anonymous citizen session resolution via Supabase Auth (`/auth/v1/signup`) or cookie session, satisfying foreign key constraints.
+    - Executes via Service Role client, securely bypassing PostgreSQL trigger RLS restrictions on `public_report_features`.
+    - Persists report to `reports`, media to `report_media`, initial audit event to `report_status_events`, and classification to `ai_analyses`.
+  - **Leaflet Interactive Mini-Map (`location-mini-map.tsx`)**:
+    - Replaced static SVG river schematic with a real interactive Leaflet map using CARTO Voyager tiles.
+    - Features a draggable red target pin with ping animation; dragging the pin or clicking the map immediately triggers reverse geocoding via OpenStreetMap Nominatim with Thai language localization (`ถนน... เขต...`).
+    - Added floating GPS locate-me control and zoom controls.
+  - **Location Pre-fill & Confirmation Banner**:
+    - When redirected from `/map` (`/report/new?lat=...&lng=...&label=...`), automatically pre-populates coordinates and displays an informative banner.
+  - **Interactive Category Selector**:
+    - Added a 6-card interactive grid (หลุมบ่อ, รอยแตกร้าว, ทรุดตัว, ผิวทางสึกหรอ, น้ำท่วมขัง, อื่นๆ) with icons, Thai names, and descriptions, allowing citizen choice or overriding AI classification.
+  - **Public ID & UUID Lookup Compatibility**:
+    - Enhanced `getPublicReport` and `/api/operations/reports/[id]/transition` to resolve reports by either UUID or human-readable tracking ID (`REP-...`), eliminating PostgreSQL `22P02 invalid input syntax for type uuid` errors.
 
 ## Demo Mode
 - Run with `NEXT_PUBLIC_APP_MODE=demo` (default in `.env.local`).

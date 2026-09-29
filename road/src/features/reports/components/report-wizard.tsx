@@ -12,35 +12,129 @@ import { useReportRepository } from "@/lib/repositories/repository-provider";
 import { Button } from "@/components/ui/button";
 import { Textarea, Input } from "@/components/ui/input";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { Check, ArrowRight, ArrowLeft, Send, ShieldCheck } from "lucide-react";
+import {
+  Check,
+  ArrowRight,
+  ArrowLeft,
+  Send,
+  ShieldCheck,
+  MapPin,
+  CircleDot,
+  Split,
+  Layers,
+  AlertTriangle,
+  Waves,
+  HelpCircle,
+} from "lucide-react";
 import { toast } from "sonner";
 
-/** Generate a unique media ID — defined outside to avoid react-hooks/purity lint */
+/** Generate a unique media ID */
 function generateMediaId(): string {
   const ts = Date.now().toString();
   const rand = Math.random().toString(36).substring(2, 7);
   return `med-${ts}-${rand}`;
 }
 
-/** Generate an idempotency key — defined outside to avoid react-hooks/purity lint */
+/** Generate an idempotency key */
 function generateIdempotencyKey(): string {
   const ts = Date.now().toString();
   const rand = Math.random().toString(36).substring(2, 8);
   return `idemp-${ts}-${rand}`;
 }
 
+// Category options with rich Thai descriptions & icons
+const CATEGORY_OPTIONS: Array<{
+  id: DamageCategory;
+  nameTh: string;
+  nameEn: string;
+  description: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+}> = [
+  {
+    id: "pothole",
+    nameTh: "หลุมบ่อ",
+    nameEn: "Pothole",
+    description: "ผิวทางแตกเป็นหลุม ขอบทางชำรุด ลึกเสี่ยงอุบัติเหตุ",
+    icon: CircleDot,
+    color: "text-amber-600 bg-amber-500/10 border-amber-500/20",
+  },
+  {
+    id: "crack",
+    nameTh: "รอยแตกร้าว",
+    nameEn: "Crack",
+    description: "รอยแยกตามยาว/ขวาง ผิวคอนกรีตหรือแอสฟัลต์ปริแตก",
+    icon: Split,
+    color: "text-blue-600 bg-blue-500/10 border-blue-500/20",
+  },
+  {
+    id: "subsidence",
+    nameTh: "ทรุดตัว / คอสะพาน",
+    nameEn: "Subsidence",
+    description: "ผิวถนนยุบตัว คอสะพานต่างระดับ พื้นทางเป็นแอ่ง",
+    icon: AlertTriangle,
+    color: "text-red-600 bg-red-500/10 border-red-500/20",
+  },
+  {
+    id: "surface_wear",
+    nameTh: "ผิวทางสึกหรอ",
+    nameEn: "Surface Wear",
+    description: "ยางมะตอยร่อน ผิวขรุขระ หินลอย ร่องล้อลึก",
+    icon: Layers,
+    color: "text-purple-600 bg-purple-500/10 border-purple-500/20",
+  },
+  {
+    id: "standing_water",
+    nameTh: "น้ำท่วมขัง / ทางระบายน้ำ",
+    nameEn: "Standing Water",
+    description: "น้ำขังบนผิวจราจร ตะแกรงหรือท่อระบายน้ำอุดตัน",
+    icon: Waves,
+    color: "text-cyan-600 bg-cyan-500/10 border-cyan-500/20",
+  },
+  {
+    id: "other",
+    nameTh: "อื่นๆ / สิ่งกีดขวาง",
+    nameEn: "Other Hazard",
+    description: "ฝาท่อชำรุด แผงกั้นเสียหาย เศษวัสดุกีดขวาง",
+    icon: HelpCircle,
+    color: "text-gray-600 bg-gray-500/10 border-gray-500/20",
+  },
+];
 
 export function ReportWizard() {
   const repository = useReportRepository();
 
-  // Wizard Step (1: Evidence, 2: Location & AI, 3: Success)
+  // Wizard Step (1: Evidence & Category, 2: Location & Review, 3: Success)
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
 
   // Form State
   const [mediaFiles, setMediaFiles] = React.useState<MediaItem[]>([]);
   const [description, setDescription] = React.useState("");
   const [locationContext, setLocationContext] = React.useState("");
-  const [selectedCategory, setSelectedCategory] = React.useState<DamageCategory | undefined>(undefined);
+  const [selectedCategory, setSelectedCategory] = React.useState<DamageCategory>("pothole");
+
+  // Pre-filled location state from URL query
+  const [presetLocationInfo, setPresetLocationInfo] = React.useState<{
+    lat: number;
+    lng: number;
+    label: string;
+  } | null>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const latParam = params.get("lat");
+      const lngParam = params.get("lng");
+      const labelParam = params.get("label");
+      if (latParam && lngParam) {
+        const lat = parseFloat(latParam);
+        const lng = parseFloat(lngParam);
+        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          const label = labelParam ? decodeURIComponent(labelParam) : `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+          return { lat, lng, label };
+        }
+      }
+    }
+    return null;
+  });
 
   // AI Classification state
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
@@ -65,20 +159,13 @@ export function ReportWizard() {
 
   // Pre-fill location if coming from map selection (e.g. /report/new?lat=...&lng=...&label=...)
   React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const latParam = params.get("lat");
-      const lngParam = params.get("lng");
-      const labelParam = params.get("label");
-      if (latParam && lngParam) {
-        const lat = parseFloat(latParam);
-        const lng = parseFloat(lngParam);
-        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-          setManualLocation(lat, lng, labelParam ? decodeURIComponent(labelParam) : undefined);
-        }
-      }
+    if (presetLocationInfo) {
+      const timer = setTimeout(() => {
+        setManualLocation(presetLocationInfo.lat, presetLocationInfo.lng, presetLocationInfo.label);
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [setManualLocation]);
+  }, [presetLocationInfo, setManualLocation]);
 
   // Run AI analysis whenever new primary media is uploaded
   const handleAddFiles = async (files: File[]) => {
@@ -105,7 +192,7 @@ export function ReportWizard() {
           id: generateMediaId(),
           url: dataUrl,
           thumbnailUrl: dataUrl,
-          mimeType: f.type,
+          mimeType: f.type || "image/jpeg",
           fileName: f.name,
           byteSize: f.size,
           isSanitized: true,
@@ -164,13 +251,12 @@ export function ReportWizard() {
     setMediaFiles(updated);
     if (updated.length === 0) {
       setAiAnalysis(null);
-      setSelectedCategory(undefined);
     }
   };
 
   const handleSubmit = async () => {
     if (mediaFiles.length === 0) {
-      toast.error("Please provide at least one photo of the road damage.");
+      toast.error("กรุณาแนบภาพถ่ายจุดชำรุดอย่างน้อย 1 ภาพ (หรือกดปุ่ม 'ใช้รูปตัวอย่าง' ด้านล่าง)");
       setStep(1);
       return;
     }
@@ -181,7 +267,7 @@ export function ReportWizard() {
       const result = await repository.submitReport({
         draftId: `draft-${Date.now().toString()}`,
         idempotencyKey,
-        category: selectedCategory || aiAnalysis?.primaryCategory || "pothole",
+        category: selectedCategory,
         description: description.trim() || undefined,
         locationContext: locationContext.trim() || undefined,
         location: currentLocation,
@@ -191,9 +277,9 @@ export function ReportWizard() {
 
       setSubmittedReport(result);
       setStep(3);
-      toast.success("Road damage report successfully broadcast!");
+      toast.success("ส่งรายงานความเสียหายเข้าสู่ระบบเรียบร้อยแล้ว!");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to submit report. Please try again.";
+      const message = err instanceof Error ? err.message : "ไม่สามารถส่งรายงานได้ กรุณาลองใหม่อีกครั้ง";
       toast.error(message);
     } finally {
       setIsSubmitting(false);
@@ -206,8 +292,9 @@ export function ReportWizard() {
     setDescription("");
     setLocationContext("");
     setAiAnalysis(null);
-    setSelectedCategory(undefined);
+    setSelectedCategory("pothole");
     setSubmittedReport(null);
+    setPresetLocationInfo(null);
   };
 
   if (step === 3 && submittedReport) {
@@ -226,57 +313,85 @@ export function ReportWizard() {
         <div className="flex items-center gap-2 sm:gap-3 w-full">
           <div
             className={`h-7 w-7 sm:h-8 sm:w-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-              step >= 1
-                ? "bg-brand text-white shadow-xs"
-                : "bg-surface-muted text-text-muted"
+              step >= 1 ? "bg-brand text-white shadow-xs" : "bg-surface-muted text-text-muted"
             }`}
           >
             {step > 1 ? <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : "1"}
           </div>
-          <span className={`text-xs sm:text-sm font-semibold truncate ${step === 1 ? "text-text-primary" : "text-text-muted"}`}>
-            1. Evidence Photo
+          <span
+            className={`text-xs sm:text-sm font-semibold truncate ${
+              step === 1 ? "text-text-primary" : "text-text-muted"
+            }`}
+          >
+            1. ภาพถ่าย & ประเภทปัญหา
           </span>
 
           <div className="flex-1 max-w-6 sm:max-w-12 h-0.5 bg-border mx-1 shrink-0" />
 
           <div
             className={`h-7 w-7 sm:h-8 sm:w-8 shrink-0 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-              step >= 2
-                ? "bg-brand text-white shadow-xs"
-                : "bg-surface-muted text-text-muted"
+              step >= 2 ? "bg-brand text-white shadow-xs" : "bg-surface-muted text-text-muted"
             }`}
           >
             2
           </div>
-          <span className={`text-xs sm:text-sm font-semibold truncate ${step === 2 ? "text-text-primary" : "text-text-muted"}`}>
-            2. Location & AI Review
+          <span
+            className={`text-xs sm:text-sm font-semibold truncate ${
+              step === 2 ? "text-text-primary" : "text-text-muted"
+            }`}
+          >
+            2. ยืนยันพิกัดบนแผนที่จริง
           </span>
         </div>
       </div>
 
-      {/* STEP 1: EVIDENCE UPLOAD */}
+      {/* Preset Location Banner (If redirected from /map) */}
+      {presetLocationInfo && (
+        <div className="p-3 sm:p-4 rounded-2xl bg-brand-soft/80 border border-brand/30 flex items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2 rounded-xl bg-brand text-white shrink-0 shadow-xs">
+              <MapPin className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="font-bold text-text-primary block truncate">
+                เลือกตำแหน่งจากแผนที่แล้ว
+              </span>
+              <p className="text-text-secondary truncate mt-0.5">
+                {presetLocationInfo.label} ({presetLocationInfo.lat.toFixed(4)},{" "}
+                {presetLocationInfo.lng.toFixed(4)})
+              </p>
+            </div>
+          </div>
+          <span className="shrink-0 px-2.5 py-1 rounded-full bg-brand/10 text-brand text-[11px] font-bold">
+            พิกัดพร้อมแล้ว
+          </span>
+        </div>
+      )}
+
+      {/* STEP 1: EVIDENCE & CATEGORY */}
       {step === 1 && (
-        <Card>
+        <Card className="shadow-xs">
           <CardHeader>
             <span className="text-xs font-bold uppercase tracking-wider text-brand">
-              Step 1 of 2
+              Step 1 of 2 • ขั้นตอนที่ 1
             </span>
             <CardTitle className="text-xl sm:text-2xl mt-1">
               Drop a photo. We’ll help identify the damage.
             </CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              Upload clear road surface evidence. Our Roboflow AI vision model will automatically categorize the damage.
+              ถ่ายหรืออัปโหลดภาพถ่ายจุดเกิดเหตุ ระบบมี AI ช่วยตรวจจับประเภทความเสียหายอัตโนมัติ
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-6">
+            {/* Upload Area */}
             <EvidenceUploader
               files={mediaFiles}
               onAddFiles={handleAddFiles}
               onRemoveFile={handleRemoveFile}
             />
 
-            {/* AI Preview if available right after upload */}
+            {/* AI Analysis Preview */}
             {(isAnalyzing || aiAnalysis || aiError) && (
               <ClassificationPanel
                 isLoading={isAnalyzing}
@@ -285,12 +400,65 @@ export function ReportWizard() {
                 onRetry={() => mediaFiles[0] && triggerAiAnalysis(mediaFiles[0].fileName)}
               />
             )}
+
+            {/* Interactive Category Selector (Citizen Choice) */}
+            <div className="space-y-3 pt-2 border-t border-border-subtle">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs sm:text-sm font-bold text-text-primary">
+                    เลือกประเภทความเสียหาย (Select Category)
+                  </h4>
+                  <p className="text-[11px] text-text-secondary mt-0.5">
+                    เลือกประเภทที่ตรงกับจุดเกิดเหตุ (สามารถเปลี่ยนได้ตามต้องการ)
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {CATEGORY_OPTIONS.map((cat) => {
+                  const Icon = cat.icon;
+                  const isSelected = selectedCategory === cat.id;
+
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 cursor-pointer ${
+                        isSelected
+                          ? "border-brand bg-brand-soft/40 shadow-xs ring-2 ring-brand/30"
+                          : "border-border bg-surface hover:bg-surface-muted hover:border-border/80"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1.5">
+                        <div className={`p-1.5 rounded-xl border ${cat.color}`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        {isSelected && (
+                          <span className="w-5 h-5 rounded-full bg-brand text-white flex items-center justify-center shrink-0">
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-text-primary block leading-tight">
+                          {cat.nameTh}
+                        </span>
+                        <span className="text-[10px] text-text-muted block leading-tight mt-0.5">
+                          {cat.nameEn}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </CardContent>
 
           <CardFooter className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-surface-muted/30 p-4 sm:p-6">
             <div className="text-xs text-text-muted flex items-center justify-center sm:justify-start gap-1.5 text-center sm:text-left">
               <ShieldCheck className="h-4 w-4 text-brand shrink-0" />
-              <span className="truncate sm:whitespace-normal">Photos are sanitized and privacy-protected</span>
+              <span>ภาพถ่ายได้รับการปกป้องความเป็นส่วนตัว</span>
             </div>
 
             <Button
@@ -298,37 +466,37 @@ export function ReportWizard() {
               disabled={mediaFiles.length === 0}
               onClick={() => {
                 if (mediaFiles.length === 0) {
-                  toast.error("Please add at least one photo.");
+                  toast.error("กรุณาแนบภาพถ่ายอย่างน้อย 1 ภาพ (หรือกดปุ่ม 'ใช้รูปตัวอย่าง')");
                   return;
                 }
                 setStep(2);
               }}
               className="gap-2 font-semibold w-full sm:w-auto justify-center shrink-0"
             >
-              <span>Next: Confirm Location</span>
+              <span>Next: Confirm Location (ถัดไป)</span>
               <ArrowRight className="h-4 w-4 shrink-0" />
             </Button>
           </CardFooter>
         </Card>
       )}
 
-      {/* STEP 2: LOCATION & AI REVIEW */}
+      {/* STEP 2: LOCATION & REVIEW */}
       {step === 2 && (
-        <Card>
+        <Card className="shadow-xs">
           <CardHeader>
             <span className="text-xs font-bold uppercase tracking-wider text-brand">
-              Step 2 of 2
+              Step 2 of 2 • ขั้นตอนที่ 2
             </span>
-            <CardTitle className="text-2xl mt-1">
-              Confirm Incident Location
+            <CardTitle className="text-xl sm:text-2xl mt-1">
+              Confirm Incident Location (ยืนยันตำแหน่ง)
             </CardTitle>
-            <CardDescription>
-              Verify where the hazard is located. You can also add brief landmarks or context.
+            <CardDescription className="text-xs sm:text-sm">
+              ตรวจสอบตำแหน่งที่เกิดเหตุ สามารถลากหมุดบนแผนที่จริงเพื่อปรับตำแหน่งอย่างแม่นยำ
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-6">
-            {/* AI Classification Badge & Preview */}
+            {/* AI Summary Banner */}
             <ClassificationPanel
               isLoading={isAnalyzing}
               analysis={aiAnalysis}
@@ -338,28 +506,28 @@ export function ReportWizard() {
               isFlaggedIncorrect={isFlaggedIncorrect}
             />
 
-            {/* Location Panel */}
+            {/* Interactive Leaflet Location Panel */}
             <LocationPanel
               location={currentLocation}
               state={geoState}
               errorMessage={geoError}
               isManualOverride={isManualOverride}
               onRequestLocation={requestLocation}
-              onSelectCoordinates={setManualLocation}
+              onSelectCoordinates={(lat, lng, label) => setManualLocation(lat, lng, label)}
               onReturnToGps={returnToGps}
             />
 
-            {/* Optional Notes */}
-            <div className="space-y-3">
+            {/* Additional Context & Notes */}
+            <div className="space-y-3.5 pt-2 border-t border-border-subtle">
               <Input
-                label="Landmark / Location Context (Optional)"
+                label="จุดสังเกต หรือสถานที่ใกล้เคียง (Optional)"
                 placeholder="e.g. In front of BTS station exit 2, near 7-Eleven"
                 value={locationContext}
                 onChange={(e) => setLocationContext(e.target.value)}
               />
 
               <Textarea
-                label="Additional Details (Optional)"
+                label="รายละเอียดความเสียหายเพิ่มเติม (Optional)"
                 placeholder="Briefly describe if traffic is blocked, hazard severity, or other observations..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -376,7 +544,7 @@ export function ReportWizard() {
               className="gap-1.5 w-full sm:w-auto justify-center"
             >
               <ArrowLeft className="h-4 w-4 shrink-0" />
-              <span>Back</span>
+              <span>ย้อนกลับ (Back)</span>
             </Button>
 
             <Button

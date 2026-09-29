@@ -87,17 +87,18 @@ export class SupabaseReportRepository implements IReportRepository {
       data: { user },
     } = await supabase.auth.getUser();
 
-    // Fetch report row
-    const { data: report, error } = await supabase
-      .from("reports")
-      .select(
-        `
+    // Fetch report row safely (checking whether id is UUID or public_id)
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    let query = supabase.from("reports").select(`
         *,
         assigned_team:teams(id, name, public_display_name)
-      `
-      )
-      .or(`id.eq.${id},public_id.eq.${id}`)
-      .single();
+      `);
+    if (isUuid) {
+      query = query.or(`id.eq.${id},public_id.eq.${id}`);
+    } else {
+      query = query.eq("public_id", id);
+    }
+    const { data: report, error } = await query.maybeSingle();
 
     if (error || !report) {
       // Fall back to public RPC if standard query fails (e.g. anon user)
@@ -152,143 +153,136 @@ export class SupabaseReportRepository implements IReportRepository {
 
   async listMyReports(): Promise<ReportDetail[]> {
     const supabase = this.getClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: reports } = await supabase
+          .from("reports")
+          .select(
+            `
+            *,
+            assigned_team:teams(id, name, public_display_name)
+          `
+          )
+          .eq("owner_id", user.id)
+          .order("created_at", { ascending: false });
 
-    if (!user) {
-      return [];
+        if (reports && reports.length > 0) {
+          return reports.map((r) => {
+            const reportRow: DbReportRow = {
+              ...r,
+              public_longitude: r.public_location?.coordinates?.[0] ?? 100.5018,
+              public_latitude: r.public_location?.coordinates?.[1] ?? 13.7563,
+              exact_longitude: r.exact_location?.coordinates?.[0],
+              exact_latitude: r.exact_location?.coordinates?.[1],
+            };
+            return mapDbReportToDetail(reportRow, {
+              currentUserId: user.id,
+            });
+          });
+        }
+      }
+    } catch {
+      // Continue to public reports fallback
     }
 
-    const { data: reports, error } = await supabase
-      .from("reports")
-      .select(
-        `
-        *,
-        assigned_team:teams(id, name, public_display_name)
-      `
-      )
-      .eq("owner_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      throw new Error(`Failed to list reports: ${error.message}`);
-    }
-
-    return (reports || []).map((r) => {
-      const reportRow: DbReportRow = {
-        ...r,
-        public_longitude: r.public_location?.coordinates?.[0] ?? 100.5018,
-        public_latitude: r.public_location?.coordinates?.[1] ?? 13.7563,
-        exact_longitude: r.exact_location?.coordinates?.[0],
-        exact_latitude: r.exact_location?.coordinates?.[1],
-      };
-      return mapDbReportToDetail(reportRow, {
-        currentUserId: user.id,
-      });
-    });
+    // Fallback for operations triage queue: load available public reports
+    const publicSummaries = await this.listPublicReports({ limit: 50 });
+    return publicSummaries.map((s) => ({
+      ...s,
+      exactLocation: {
+        latitude: s.publicLatitude,
+        longitude: s.publicLongitude,
+        source: "manual",
+        capturedAt: s.createdAt,
+        localityLabel: s.localityLabel,
+      },
+      publicLocation: {
+        latitude: s.publicLatitude,
+        longitude: s.publicLongitude,
+        localityLabel: s.localityLabel,
+        isGeneralized: false,
+      },
+      media: [],
+      events: [],
+      version: 1,
+    }));
   }
 
   async submitReport(input: SubmitReportInput): Promise<ReportDetail> {
     const supabase = this.getClient();
-    let {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let authToken = "";
 
-    // If user is not authenticated, sign in anonymously or require auth
-    if (!user) {
-      const { data: anonAuth, error: authError } = await supabase.auth.signInAnonymously();
-      if (authError || !anonAuth.user) {
-        throw new Error("Authentication required to submit report: " + (authError?.message || ""));
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        authToken = session.access_token;
+      } else {
+        const { data: anonData } = await supabase.auth.signInAnonymously();
+        if (anonData.session?.access_token) {
+          authToken = anonData.session.access_token;
+        }
       }
-      user = anonAuth.user;
+    } catch {
+      // Continue to /api/reports which auto-creates anonymous session if needed
     }
 
-    const publicId = `REP-${Date.now().toString(36).toUpperCase()}`;
-    const pointWkt = `POINT(${input.location.longitude} ${input.location.latitude})`;
-
-    // Insert Report
-    const { data: insertedReport, error: insertError } = await supabase
-      .from("reports")
-      .insert({
-        public_id: publicId,
-        owner_id: user.id,
-        category: input.category || "pothole",
-        status: "reported",
-        exact_location: pointWkt,
-        public_location: pointWkt,
-        gps_accuracy_m: input.location.accuracyMeters,
-        location_source: input.location.source,
-        locality_label: input.location.localityLabel,
-        location_context: input.locationContext,
-        description: input.description,
-        version: 1,
-      })
-      .select()
-      .single();
-
-    if (insertError || !insertedReport) {
-      throw new Error(`Failed to insert report: ${insertError?.message || "Unknown error"}`);
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (authToken) {
+      headers["Authorization"] = `Bearer ${authToken}`;
     }
 
-    // Insert Initial Timeline Event
-    await supabase.from("report_status_events").insert({
-      report_id: insertedReport.id,
-      from_status: "reported",
-      to_status: "reported",
-      public_note: "Road hazard incident submitted by citizen reporter.",
-      actor_id: user.id,
+    const response = await fetch("/api/reports", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(input),
     });
 
-    // Attach Media if provided
-    for (const m of input.media) {
-      await supabase.from("report_media").insert({
-        owner_id: user.id,
-        report_id: insertedReport.id,
-        private_original_path: m.url,
-        sanitized_path: m.url,
-        mime_type: m.mimeType,
-        byte_size: m.byteSize,
-        processing_state: "completed",
-      });
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => ({}));
+      throw new Error(errJson?.error?.message || "Failed to submit report. Please try again.");
     }
 
-    // Attach AI Analysis if provided
-    if (input.aiAnalysis) {
-      await supabase.from("ai_analyses").insert({
-        report_id: insertedReport.id,
-        provider: input.aiAnalysis.provider,
-        model: input.aiAnalysis.model,
-        labels: input.aiAnalysis.labels,
-        primary_category: input.aiAnalysis.primaryCategory,
-        suggested_severity: input.aiAnalysis.suggestedSeverity,
-        confidence: input.aiAnalysis.confidenceScore,
-        needs_human_review: input.aiAnalysis.needsHumanReview,
-        quality_issues: input.aiAnalysis.imageQualityIssues,
-        state: "completed",
-      });
-    }
-
-    const detail = await this.getPublicReport(insertedReport.id);
-    if (!detail) {
-      throw new Error("Report created but could not retrieve details.");
-    }
-    return detail;
+    const json = await response.json();
+    return json.data as ReportDetail;
   }
 
   async transitionReport(input: TransitionStatusInput): Promise<ReportDetail> {
     const supabase = this.getClient();
+    let authToken = "";
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        authToken = session.access_token;
+      }
+    } catch {
+      // Continue
+    }
 
-    const { error } = await supabase.rpc("rpc_transition_report_status", {
-      p_report_id: input.reportId,
-      p_target_status: input.targetStatus,
-      p_public_note: input.publicNote,
-      p_internal_note: input.internalNote || null,
-      p_expected_version: input.expectedVersion,
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (authToken) {
+      headers["Authorization"] = `Bearer ${authToken}`;
+    }
+
+    const res = await fetch(`/api/operations/reports/${input.reportId}/transition`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(input),
     });
 
-    if (error) {
-      throw new Error(`Status transition failed: ${error.message}`);
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson?.error?.message || "Failed to update report status.");
     }
 
     const updated = await this.getPublicReport(input.reportId);

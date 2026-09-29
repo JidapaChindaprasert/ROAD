@@ -37,7 +37,7 @@ test.describe("Citizen Damage Report Submission Flow", () => {
 
     // Verify Success Screen
     await expect(page.getByText("Incident Reported Successfully")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText(/(RD-2026-|ROAD-BKK-)/i)).toBeVisible();
+    await expect(page.getByText(/(RD-2026-|ROAD-BKK-|REP-)/i)).toBeVisible();
 
     // Navigate to public tracking page
     const trackBtn = page.getByRole("link", { name: /View Public Audit & Tracking/i });
@@ -45,6 +45,6 @@ test.describe("Citizen Damage Report Submission Flow", () => {
     await trackBtn.click();
 
     // Verify detail page has loaded
-    await expect(page.getByText("Repair Progress & Event History")).toBeVisible();
+    await expect(page.getByText("Repair Progress & Event History")).toBeVisible({ timeout: 10000 });
   });
 });

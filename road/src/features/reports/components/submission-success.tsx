@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ReportDetail } from "../types";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Map, FileText, Share2, Sparkles, ArrowRight } from "lucide-react";
+import { CheckCircle2, Map, Share2, Sparkles, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatCoordinates } from "@/lib/utils";
 import { toast } from "sonner";

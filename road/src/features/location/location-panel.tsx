@@ -13,7 +13,7 @@ export interface LocationPanelProps {
   errorMessage?: string | null;
   isManualOverride?: boolean;
   onRequestLocation: () => void;
-  onSelectCoordinates: (lat: number, lng: number) => void;
+  onSelectCoordinates: (lat: number, lng: number, label?: string) => void;
   onReturnToGps: () => void;
   className?: string;
 }

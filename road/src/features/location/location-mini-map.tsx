@@ -1,24 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { MapPin, Crosshair } from "lucide-react";
+import type * as LeafletType from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { Plus, Minus, LocateFixed, Loader2, MapPin } from "lucide-react";
 
 export interface LocationMiniMapProps {
   latitude: number;
   longitude: number;
   accuracyMeters?: number;
   isManual?: boolean;
-  onSelectCoordinates?: (lat: number, lng: number) => void;
+  onSelectCoordinates?: (lat: number, lng: number, label?: string) => void;
   className?: string;
 }
-
-// Bounding box for the Bangkok schematic map
-const MAP_BOUNDS = {
-  north: 13.84,
-  south: 13.68,
-  west: 100.44,
-  east: 100.62,
-};
 
 export function LocationMiniMap({
   latitude,
@@ -28,106 +22,268 @@ export function LocationMiniMap({
   onSelectCoordinates,
   className = "",
 }: LocationMiniMapProps) {
-  const mapRef = React.useRef<SVGSVGElement | null>(null);
+  const mapContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const mapRef = React.useRef<LeafletType.Map | null>(null);
+  const markerRef = React.useRef<LeafletType.Marker | null>(null);
+  const leafletModuleRef = React.useRef<typeof LeafletType | null>(null);
 
-  // Convert lat/lng to percentage coordinates within bounds
-  const getCoordinatesPercent = (lat: number, lng: number) => {
-    const x = ((lng - MAP_BOUNDS.west) / (MAP_BOUNDS.east - MAP_BOUNDS.west)) * 100;
-    const y = ((MAP_BOUNDS.north - lat) / (MAP_BOUNDS.north - MAP_BOUNDS.south)) * 100;
-    return {
-      x: Math.max(5, Math.min(95, x)),
-      y: Math.max(5, Math.min(95, y)),
+  const [isMapReady, setIsMapReady] = React.useState(false);
+  const [isReverseGeocoding, setIsReverseGeocoding] = React.useState(false);
+
+  // Keep callback in ref to avoid stale closures in Leaflet events
+  const onSelectRef = React.useRef(onSelectCoordinates);
+  React.useEffect(() => {
+    onSelectRef.current = onSelectCoordinates;
+  }, [onSelectCoordinates]);
+
+  // Reverse geocoding helper
+  const reverseGeocode = React.useCallback(async (lat: number, lng: number) => {
+    setIsReverseGeocoding(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`,
+        {
+          headers: {
+            "Accept-Language": "th,en",
+            "User-Agent": "ROAD-Damage-Reporter/1.0",
+          },
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        let label = "";
+        if (data.address) {
+          const addr = data.address;
+          const road = addr.road || addr.street || addr.pedestrian || "";
+          const suburb = addr.suburb || addr.quarter || addr.neighbourhood || addr.district || "";
+          const city = addr.city || addr.town || addr.province || addr.state || "";
+          const parts = [road, suburb, city].filter(Boolean);
+          label = parts.join(", ") || data.display_name.split(",").slice(0, 3).join(", ");
+        }
+        return label || data.display_name?.split(",").slice(0, 3).join(", ");
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsReverseGeocoding(false);
+    }
+    return `พิกัด ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+  }, []);
+
+  const initialCoordsRef = React.useRef({ latitude, longitude });
+  const reverseGeocodeRef = React.useRef(reverseGeocode);
+  React.useEffect(() => {
+    reverseGeocodeRef.current = reverseGeocode;
+  }, [reverseGeocode]);
+
+  // Initialize Leaflet Mini Map (Client-side dynamic import, runs once)
+  React.useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return;
+
+    let isDisposed = false;
+    let mapInstance: LeafletType.Map | null = null;
+
+    async function initMiniMap() {
+      try {
+        const leafletModule = await import("leaflet");
+        const L = (leafletModule.default || leafletModule) as typeof LeafletType;
+        leafletModuleRef.current = L;
+
+        if (isDisposed || !mapContainerRef.current) return;
+
+        const { latitude: initLat, longitude: initLng } = initialCoordsRef.current;
+        const map = L.map(mapContainerRef.current, {
+          center: [initLat, initLng],
+          zoom: 16,
+          minZoom: 4,
+          maxZoom: 19,
+          zoomControl: false,
+          attributionControl: false,
+        });
+        mapInstance = map;
+        mapRef.current = map;
+
+        // CARTO Voyager Tiles
+        const cartoKey =
+          process.env.NEXT_PUBLIC_CARTO_API_KEY || "cb1_43kf_1_52bd28b4e3ec99b3a194e59f";
+        const cartoUrl = `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${cartoKey}`;
+        const tileLayer = L.tileLayer(cartoUrl, {
+          subdomains: ["a", "b", "c", "d"],
+          maxZoom: 20,
+          detectRetina: true,
+        });
+
+        // OSM Fallback
+        tileLayer.on("tileerror", () => {
+          if (!isDisposed && mapRef.current) {
+            L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+              subdomains: ["a", "b", "c"],
+              maxZoom: 19,
+            }).addTo(mapRef.current);
+          }
+        });
+        tileLayer.addTo(map);
+
+        // Draggable Custom Target Pin
+        const pinIcon = L.divIcon({
+          className: "road-leaflet-div-icon",
+          html: `
+            <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing">
+              <span class="absolute w-9 h-9 rounded-full bg-red-500/30 animate-ping"></span>
+              <div class="w-8 h-8 rounded-full bg-red-600 border-2 border-white shadow-xl flex items-center justify-center text-white">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="22" y1="12" x2="18" y2="12"></line>
+                  <line x1="6" y1="12" x2="2" y2="12"></line>
+                  <line x1="12" y1="6" x2="12" y2="2"></line>
+                  <line x1="12" y1="22" x2="12" y2="18"></line>
+                </svg>
+              </div>
+            </div>
+          `,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+
+        const marker = L.marker([initLat, initLng], {
+          icon: pinIcon,
+          draggable: true,
+          zIndexOffset: 1000,
+        }).addTo(map);
+        markerRef.current = marker;
+
+        // Handle Pin Drag End
+        marker.on("dragend", async () => {
+          const latlng = marker.getLatLng();
+          const newLat = Number(latlng.lat.toFixed(6));
+          const newLng = Number(latlng.lng.toFixed(6));
+          const label = await reverseGeocodeRef.current(newLat, newLng);
+          if (onSelectRef.current) {
+            onSelectRef.current(newLat, newLng, label);
+          }
+        });
+
+        // Handle Map Click to place pin
+        map.on("click", async (e: LeafletType.LeafletMouseEvent) => {
+          const newLat = Number(e.latlng.lat.toFixed(6));
+          const newLng = Number(e.latlng.lng.toFixed(6));
+          marker.setLatLng([newLat, newLng]);
+          const label = await reverseGeocodeRef.current(newLat, newLng);
+          if (onSelectRef.current) {
+            onSelectRef.current(newLat, newLng, label);
+          }
+        });
+
+        // Trigger map resize
+        setTimeout(() => {
+          if (!isDisposed && mapRef.current) {
+            mapRef.current.invalidateSize();
+            setIsMapReady(true);
+          }
+        }, 80);
+      } catch (err) {
+        console.error("Failed to initialize Leaflet mini map:", err);
+      }
+    }
+
+    initMiniMap();
+
+    return () => {
+      isDisposed = true;
+      if (mapInstance) {
+        mapInstance.remove();
+        mapRef.current = null;
+      }
     };
-  };
+  }, []);
 
-  const { x, y } = getCoordinatesPercent(latitude, longitude);
+  // Sync marker and pan when props change
+  React.useEffect(() => {
+    if (!mapRef.current || !markerRef.current) return;
+    const cur = markerRef.current.getLatLng();
+    if (Math.abs(cur.lat - latitude) > 0.0001 || Math.abs(cur.lng - longitude) > 0.0001) {
+      markerRef.current.setLatLng([latitude, longitude]);
+      mapRef.current.panTo([latitude, longitude], { animate: true });
+    }
+  }, [latitude, longitude]);
 
-  const handleMapClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!onSelectCoordinates || !mapRef.current) return;
-    const rect = mapRef.current.getBoundingClientRect();
-    const clickX = ((e.clientX - rect.left) / rect.width) * 100;
-    const clickY = ((e.clientY - rect.top) / rect.height) * 100;
-
-    const newLng = MAP_BOUNDS.west + (clickX / 100) * (MAP_BOUNDS.east - MAP_BOUNDS.west);
-    const newLat = MAP_BOUNDS.north - (clickY / 100) * (MAP_BOUNDS.north - MAP_BOUNDS.south);
-
-    onSelectCoordinates(newLat, newLng);
+  // Handle GPS relocate
+  const handleRelocateCurrent = () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lat = Number(pos.coords.latitude.toFixed(6));
+      const lng = Number(pos.coords.longitude.toFixed(6));
+      if (markerRef.current && mapRef.current) {
+        markerRef.current.setLatLng([lat, lng]);
+        mapRef.current.flyTo([lat, lng], 17);
+      }
+      const label = await reverseGeocodeRef.current(lat, lng);
+      if (onSelectRef.current) {
+        onSelectRef.current(lat, lng, label);
+      }
+    });
   };
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-border bg-[#F2F6F9] ${className}`}>
-      {/* SVG Map Canvas */}
-      <svg
-        ref={mapRef}
-        onClick={handleMapClick}
-        viewBox="0 0 400 220"
-        className="w-full h-full min-h-[160px] cursor-crosshair select-none"
-      >
-        <defs>
-          {/* Grid pattern */}
-          <pattern id="miniGrid" width="20" height="20" patternUnits="userSpaceOnUse">
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#E1E8F0" strokeWidth="0.75" />
-          </pattern>
-        </defs>
+    <div
+      className={`relative overflow-hidden rounded-2xl border border-border bg-surface-muted select-none ${className}`}
+    >
+      {/* Map container */}
+      <div ref={mapContainerRef} className="w-full h-full min-h-[180px] z-0" />
 
-        {/* Background Grid */}
-        <rect width="100%" height="100%" fill="url(#miniGrid)" />
+      {/* Loading indicator */}
+      {!isMapReady && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-surface/75 backdrop-blur-xs">
+          <div className="flex items-center gap-2 p-2 px-3 rounded-xl bg-surface border border-border shadow-xs text-xs font-medium text-text-secondary">
+            <Loader2 className="w-4 h-4 animate-spin text-brand" />
+            <span>กำลังเตรียมแผนที่พิกัดจริง...</span>
+          </div>
+        </div>
+      )}
 
-        {/* Schematic Chao Phraya River */}
-        <path
-          d="M 120 0 C 130 50, 110 80, 140 120 C 170 160, 150 190, 160 220"
-          fill="none"
-          stroke="#CBE9F6"
-          strokeWidth="16"
-          strokeLinecap="round"
-        />
-        <path
-          d="M 120 0 C 130 50, 110 80, 140 120 C 170 160, 150 190, 160 220"
-          fill="none"
-          stroke="#A8D8F0"
-          strokeWidth="10"
-          strokeLinecap="round"
-        />
+      {/* Floating Mini Controls */}
+      <div className="absolute top-2 right-2 z-20 flex flex-col gap-1">
+        <button
+          type="button"
+          onClick={() => mapRef.current?.zoomIn()}
+          title="ซูมเข้า"
+          className="w-7 h-7 bg-surface/90 backdrop-blur-md rounded-lg border border-border/80 shadow-xs flex items-center justify-center text-text-primary hover:bg-surface"
+        >
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => mapRef.current?.zoomOut()}
+          title="ซูมออก"
+          className="w-7 h-7 bg-surface/90 backdrop-blur-md rounded-lg border border-border/80 shadow-xs flex items-center justify-center text-text-primary hover:bg-surface"
+        >
+          <Minus className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={handleRelocateCurrent}
+          title="ระบุตำแหน่งของฉัน"
+          className="w-7 h-7 bg-surface/90 backdrop-blur-md rounded-lg border border-border/80 shadow-xs flex items-center justify-center text-brand hover:bg-brand/10"
+        >
+          <LocateFixed className="w-3.5 h-3.5" />
+        </button>
+      </div>
 
-        {/* Major Expressways / Arterials */}
-        <path d="M 0 70 Q 200 60 400 90" fill="none" stroke="#FFFFFF" strokeWidth="6" />
-        <path d="M 0 70 Q 200 60 400 90" fill="none" stroke="#CBD5E1" strokeWidth="3" />
-
-        <path d="M 0 150 Q 200 130 400 160" fill="none" stroke="#FFFFFF" strokeWidth="6" />
-        <path d="M 0 150 Q 200 130 400 160" fill="none" stroke="#CBD5E1" strokeWidth="3" />
-
-        <path d="M 260 0 L 260 220" fill="none" stroke="#FFFFFF" strokeWidth="6" />
-        <path d="M 260 0 L 260 220" fill="none" stroke="#CBD5E1" strokeWidth="3" />
-
-        {/* Accuracy radius ring if GPS */}
-        {!isManual && accuracyMeters && (
-          <circle
-            cx={`${x}%`}
-            cy={`${y}%`}
-            r="16"
-            fill="rgba(8, 127, 120, 0.15)"
-            stroke="rgba(8, 127, 120, 0.4)"
-            strokeWidth="1"
-            className="animate-pulse"
-          />
-        )}
-
-        {/* Selected Marker Pin */}
-        <g transform={`translate(${x * 4 - 12}, ${y * 2.2 - 24})`}>
-          <path
-            d="M12 0C7.58 0 4 3.58 4 8c0 5.25 7 13 8 14 1-1 8-8.75 8-14 0-4.42-3.58-8-8-8z"
-            fill="#087F78"
-            stroke="#FFFFFF"
-            strokeWidth="1.5"
-          />
-          <circle cx="12" cy="8" r="3.5" fill="#FFFFFF" />
-        </g>
-      </svg>
-
-      {/* Floating map hint */}
-      <div className="absolute bottom-2 left-2 px-2 py-1 rounded-md bg-white/85 backdrop-blur-xs text-[10px] text-text-secondary border border-border flex items-center gap-1 pointer-events-none">
-        <Crosshair className="h-3 w-3 text-brand" />
-        <span>Click map to fine-tune pin location</span>
+      {/* Floating Instructions Banner */}
+      <div className="absolute bottom-2 inset-x-2 z-20 pointer-events-none flex justify-center">
+        <div className="bg-surface/95 backdrop-blur-md border border-border/80 rounded-full px-3 py-1 shadow-sm text-[11px] text-text-secondary flex items-center gap-1.5">
+          {isReverseGeocoding ? (
+            <>
+              <Loader2 className="w-3 h-3 text-brand animate-spin" />
+              <span>กำลังระบุชื่อถนน...</span>
+            </>
+          ) : (
+            <>
+              <MapPin className="w-3 h-3 text-red-600" />
+              <span>ลากหมุดแดง หรือแตะบนแผนที่เพื่อปรับตำแหน่งจุดชำรุด</span>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
