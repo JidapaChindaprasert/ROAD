@@ -63,22 +63,45 @@ export function ReportWizard() {
     returnToGps,
   } = useGeolocation();
 
+  // Pre-fill location if coming from map selection (e.g. /report/new?lat=...&lng=...&label=...)
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const latParam = params.get("lat");
+      const lngParam = params.get("lng");
+      const labelParam = params.get("label");
+      if (latParam && lngParam) {
+        const lat = parseFloat(latParam);
+        const lng = parseFloat(lngParam);
+        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          setManualLocation(lat, lng, labelParam ? decodeURIComponent(labelParam) : undefined);
+        }
+      }
+    }
+  }, [setManualLocation]);
+
   // Run AI analysis whenever new primary media is uploaded
   const handleAddFiles = async (files: File[]) => {
     const uploadedMedia: MediaItem[] = [];
 
     for (const f of files) {
+      let item: MediaItem | null = null;
       if (repository.uploadMedia) {
-        const item = await repository.uploadMedia(f);
-        uploadedMedia.push(item);
-      } else {
+        try {
+          item = await repository.uploadMedia(f);
+        } catch (uploadErr) {
+          console.warn("Remote storage upload failed, falling back to data URL:", uploadErr);
+        }
+      }
+
+      if (!item) {
         const dataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onload = () => resolve(reader.result as string);
           reader.onerror = () => resolve(URL.createObjectURL(f));
           reader.readAsDataURL(f);
         });
-        uploadedMedia.push({
+        item = {
           id: generateMediaId(),
           url: dataUrl,
           thumbnailUrl: dataUrl,
@@ -87,8 +110,9 @@ export function ReportWizard() {
           byteSize: f.size,
           isSanitized: true,
           createdAt: new Date().toISOString(),
-        });
+        };
       }
+      uploadedMedia.push(item);
     }
 
     const newMediaList = [...mediaFiles, ...uploadedMedia];

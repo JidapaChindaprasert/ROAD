@@ -4,7 +4,7 @@ import * as React from "react";
 import { ReportSummary, MapFilterState } from "@/features/reports/types";
 import { useReportRepository } from "@/lib/repositories/repository-provider";
 import { MapFilters } from "./map-filters";
-import { DemoCityMap } from "./demo-city-map";
+import { CityMap } from "./city-map";
 import { ReportListView } from "./report-list-view";
 import { MapLegend } from "./map-legend";
 import { SelectedReportPanel } from "./selected-report-panel";
@@ -71,8 +71,8 @@ export function CommunityMap() {
         <Skeleton className="w-full h-[520px] rounded-3xl" />
       ) : viewMode === "map" ? (
         <div className="relative">
-          {/* Schematic Community Map */}
-          <DemoCityMap
+          {/* Interactive City Map */}
+          <CityMap
             reports={reports}
             selectedReportId={selectedReport?.id}
             onSelectReport={setSelectedReport}

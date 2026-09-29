@@ -8,7 +8,7 @@ import { PageContainer } from "@/components/layout/page-container";
 import { DashboardHero } from "@/features/dashboard/components/dashboard-hero";
 import { CommunityMetrics } from "@/features/dashboard/components/community-metrics";
 import { RecentReports } from "@/features/dashboard/components/recent-reports";
-import { DemoCityMap } from "@/features/map/components/demo-city-map";
+import { CityMap } from "@/features/map/components/city-map";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,7 +89,7 @@ export default function DashboardPage() {
               {isLoading ? (
                 <Skeleton className="w-full h-[380px] rounded-2xl" />
               ) : (
-                <DemoCityMap
+                <CityMap
                   reports={reports}
                   onSelectReport={(rep) => {
                     window.location.href = `/reports/${rep.id}`;

@@ -16,7 +16,11 @@
 - **Seed Data**: 20 realistic Bangkok road damage reports with full timeline events, AI analysis, GPS coordinates.
 - **Demo Repository**: `DemoReportRepository` with localStorage persistence, filtering, submission, and simulated lifecycle updates.
 - **Dashboard** (`/`): Hero section, community metrics, map preview, recent reports feed, quick report CTA.
-- **Community Map** (`/map`): `DemoCityMap` with clickable pins, status filters, category filters, search, list/map toggle, legend.
+- **Community Map** (`/map`): Interactive `CityMap` powered by MapLibre GL & OpenFreeMap vector tiles. Supports:
+  1. Area search (Geocoding via OpenStreetMap Nominatim with Thai language localization and auto-fly).
+  2. Click-to-select report location with reverse geocoding and 1-click transition to report wizard (`/report/new?lat=...&lng=...&label=...`).
+  3. Direct coordinate search (regex autodetection in search bar + dedicated Lat/Lng modal with popular Bangkok presets).
+  4. Real-time incident pins, status colors, category hover badges, GPS locate-me button, zoom/reset controls.
 - **Report Wizard** (`/report/new`): Evidence upload → Roboflow/demo AI classification → GPS location with mini-map and manual fallback → submission.
 - **Report Detail** (`/reports/[id]`): Full timeline, AI analysis panel, location, simulated lifecycle transitions, share link.
 - **My Reports** (`/my-reports`): Card grid with status badges, thumbnails, and navigation.

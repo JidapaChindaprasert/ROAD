@@ -198,6 +198,7 @@ export function EvidenceUploader({
           multiple
           accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
           className="hidden"
+          aria-label="Upload evidence photos and videos"
           onChange={(e) => validateAndAddFiles(e.target.files)}
         />
 
@@ -207,6 +208,7 @@ export function EvidenceUploader({
           accept="image/*"
           capture="environment"
           className="hidden"
+          aria-label="Capture evidence with camera"
           onChange={(e) => validateAndAddFiles(e.target.files)}
         />
 
