@@ -184,9 +184,35 @@ export function CityMap({
     }
   };
 
+// Fallback standard raster tile style in case vector tiles / CDN / Adblocker stall
+const OSM_RASTER_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    "osm-tiles": {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
+  layers: [
+    {
+      id: "osm-layer",
+      type: "raster",
+      source: "osm-tiles",
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+};
+
   // Initialize Map
   React.useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
+
+    let isDisposed = false;
+    let hasLoaded = false;
+    let timeoutId: NodeJS.Timeout | null = null;
 
     try {
       const map = new maplibregl.Map({
@@ -202,14 +228,51 @@ export function CityMap({
       // Add compact attribution
       map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
 
-      map.on("load", () => {
+      const markLoaded = () => {
+        if (isDisposed || hasLoaded) return;
+        hasLoaded = true;
         setIsMapLoaded(true);
-        map.resize();
+        if (timeoutId) clearTimeout(timeoutId);
+        try {
+          map.resize();
+        } catch {
+          // ignore
+        }
+      };
+
+      // Listen to multiple events so the map never hangs
+      map.once("load", markLoaded);
+      map.once("style.load", markLoaded);
+      map.once("styledata", markLoaded);
+      map.once("render", () => {
+        markLoaded();
       });
 
+      // Error handler with automatic fallback to OSM raster tiles
       map.on("error", (e) => {
         console.warn("MapLibre notice:", e);
+        if (!hasLoaded && !isDisposed) {
+          try {
+            map.setStyle(OSM_RASTER_STYLE);
+          } catch {
+            // ignore
+          }
+          markLoaded();
+        }
       });
+
+      // Safety timeout: if after 2500ms it hasn't fired 'load', dismiss loader and try fallback
+      timeoutId = setTimeout(() => {
+        if (!hasLoaded && !isDisposed) {
+          console.warn("OpenFreeMap vector tiles timeout, switching to reliable OpenStreetMap tiles");
+          try {
+            map.setStyle(OSM_RASTER_STYLE);
+          } catch {
+            // ignore
+          }
+          markLoaded();
+        }
+      }, 2500);
 
       // Click to select location (Feature 2)
       map.on("click", (e) => {
@@ -233,6 +296,8 @@ export function CityMap({
     }
 
     return () => {
+      isDisposed = true;
+      if (timeoutId) clearTimeout(timeoutId);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
