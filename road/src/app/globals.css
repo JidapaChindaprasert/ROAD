@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+:root {
+  --background: #F6F8FB;
+  --surface: #FFFFFF;
+  --surface-muted: #EDF2F7;
+  --surface-elevated: #FFFFFF;
+  --text-primary: #132238;
+  --text-secondary: #617086;
+  --text-muted: #8E9BAE;
+  --border: #E1E8F0;
+  --border-subtle: #EDF2F7;
+
+  --brand: #087F78;
+  --brand-hover: #06675F;
+  --brand-soft: #E0F5F1;
+  --brand-bright: #37D5BC;
+  --brand-glow: rgba(55, 213, 188, 0.25);
+
+  --reported: #B45309;
+  --reported-soft: #FFF3D8;
+  --reported-border: #FDE68A;
+
+  --repairing: #4338CA;
+  --repairing-soft: #ECEBFF;
+  --repairing-border: #C7D2FE;
+
+  --fixed: #047857;
+  --fixed-soft: #DCFCE7;
+  --fixed-border: #A7F3D0;
+
+  --danger: #B91C1C;
+  --danger-soft: #FEE2E2;
+  --danger-border: #FECACA;
+
+  --glass-bg: rgba(255, 255, 255, 0.82);
+  --glass-border: rgba(225, 232, 240, 0.9);
+}
+
+@theme {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-bright: var(--brand-bright);
+  --color-brand-glow: var(--brand-glow);
+
+  --color-reported: var(--reported);
+  --color-reported-soft: var(--reported-soft);
+  --color-reported-border: var(--reported-border);
+
+  --color-repairing: var(--repairing);
+  --color-repairing-soft: var(--repairing-soft);
+  --color-repairing-border: var(--repairing-border);
+
+  --color-fixed: var(--fixed);
+  --color-fixed-soft: var(--fixed-soft);
+  --color-fixed-border: var(--fixed-border);
+
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-border: var(--danger-border);
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Custom utility classes */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Smooth custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Print styling for official government petition form export */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  header,
+  nav,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+}

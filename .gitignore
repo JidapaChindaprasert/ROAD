@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+road/node_modules/
+/.pnp
+.pnp.*
+
+# Next.js build output
+.next/
+road/.next/
+out/
+road/out/
+build/
+road/build/
+
+# Environment files - NEVER commit secrets
+.env*
+road/.env*
+!.env.example
+!road/.env.example
+
+# Testing & Reports
+coverage/
+road/coverage/
+test-results/
+road/test-results/
+playwright-report/
+road/playwright-report/
+
+# Logs & temp
+*.log
+road/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.DS_Store
+*.pem
+*.tsbuildinfo
+next-env.d.ts
+road/next-env.d.ts
+.vercel/
+road/.vercel/

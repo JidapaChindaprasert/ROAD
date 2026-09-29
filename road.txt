@@ -1,0 +1,2109 @@
+Below is a **copy-ready project starter and detailed IDE-agent specification** for **RoadSignal**, a modern road-damage reporting platform.
+
+It includes:
+
+1. A project initialization script.
+2. An `AGENTS.md` instruction file.
+3. A detailed `SKILL.md` implementation specification.
+4. An environment template.
+5. A final prompt to paste into your IDE agent.
+
+**This is an implementation blueprint, not an already-created repository.** Your IDE agent should create the files, implement the application, and run the verification steps. No prompt can guarantee a perfect implementation, but these instructions make the scope, behavior, architecture, and acceptance criteria explicit.
+
+---
+
+# 1. Initialize the project
+
+Save the following as `initialize-roadsignal.sh`, then run:
+
+```bash
+bash initialize-roadsignal.sh
+```
+
+Requirements: Git, npm, and a currently supported Node.js LTS release compatible with Next.js 16.
+
+```bash
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+PROJECT_NAME="roadsignal"
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "Node.js is required."
+  exit 1
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "npm is required."
+  exit 1
+fi
+
+if [ -e "$PROJECT_NAME" ]; then
+  echo "Directory '$PROJECT_NAME' already exists."
+  echo "Choose another name or move the existing directory."
+  exit 1
+fi
+
+npx create-next-app@16 "$PROJECT_NAME" \
+  --typescript \
+  --tailwind \
+  --eslint \
+  --app \
+  --src-dir \
+  --import-alias "@/*" \
+  --use-npm \
+  --yes
+
+cd "$PROJECT_NAME"
+
+npm install \
+  @supabase/supabase-js \
+  @supabase/ssr \
+  @tanstack/react-query \
+  maplibre-gl \
+  lucide-react \
+  motion \
+  zod \
+  react-hook-form \
+  @hookform/resolvers \
+  clsx \
+  tailwind-merge \
+  sonner \
+  ai \
+  @ai-sdk/openai
+
+npm install --save-dev \
+  vitest \
+  @vitejs/plugin-react \
+  jsdom \
+  @testing-library/react \
+  @testing-library/jest-dom \
+  @testing-library/user-event \
+  @playwright/test \
+  @axe-core/playwright \
+  prettier \
+  prettier-plugin-tailwindcss \
+  supabase \
+  tsx
+
+mkdir -p \
+  docs \
+  scripts \
+  public/demo \
+  src/components/ui \
+  src/components/layout \
+  src/features/dashboard/components \
+  src/features/reports/components \
+  src/features/reports/hooks \
+  src/features/map/components \
+  src/features/map/hooks \
+  src/features/location \
+  src/features/ai \
+  src/features/auth \
+  src/features/operations \
+  src/lib/supabase \
+  src/lib/repositories \
+  src/lib/demo \
+  src/lib/server \
+  src/lib/validation \
+  src/types \
+  tests/unit \
+  tests/integration \
+  tests/e2e \
+  supabase/migrations \
+  supabase/functions/process-media \
+  supabase/functions/classify-damage \
+  supabase/tests
+
+node <<'NODE'
+const fs = require("node:fs");
+const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+
+packageJson.scripts = {
+  ...packageJson.scripts,
+  lint: "eslint .",
+  typecheck: "tsc --noEmit",
+  format: "prettier --write .",
+  "format:check": "prettier --check .",
+  test: "vitest run",
+  "test:watch": "vitest",
+  "test:e2e": "playwright test",
+  "test:e2e:ui": "playwright test --ui",
+  "db:start": "supabase start",
+  "db:stop": "supabase stop",
+  "db:reset": "supabase db reset",
+  "db:types": "supabase gen types typescript --local > src/types/database.ts",
+  verify: "npm run lint && npm run typecheck && npm run test && npm run build"
+};
+
+fs.writeFileSync(
+  "package.json",
+  JSON.stringify(packageJson, null, 2) + "\n"
+);
+NODE
+
+cat > .env.example <<'ENV'
+NEXT_PUBLIC_APP_NAME=RoadSignal
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+
+# Explicit application mode. Never silently fall back from production to demo.
+NEXT_PUBLIC_APP_MODE=demo
+
+# Required only in production mode.
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+
+# Server-only. Never expose through NEXT_PUBLIC_*.
+SUPABASE_SERVICE_ROLE_KEY=
+
+# Server/worker-only AI configuration.
+OPENAI_API_KEY=
+AI_MODEL=
+
+# Public browser map configuration.
+# Use a licensed provider or an approved self-hosted style.
+NEXT_PUBLIC_MAP_STYLE_URL=
+NEXT_PUBLIC_MAP_ATTRIBUTION=
+
+# Private worker configuration.
+WORKER_SECRET=
+
+# Default demo view: Bangkok.
+NEXT_PUBLIC_DEFAULT_MAP_LAT=13.7563
+NEXT_PUBLIC_DEFAULT_MAP_LNG=100.5018
+NEXT_PUBLIC_DEFAULT_MAP_ZOOM=12
+ENV
+
+cp .env.example .env.local
+
+cat > docs/IMPLEMENTATION_STATUS.md <<'DOC'
+# Implementation status
+
+## Completed
+- Next.js project scaffold
+- Initial dependencies
+- Base folder structure
+- Environment template
+
+## Not implemented
+- Product interface
+- Demo repository
+- Production repository
+- Supabase migrations and policies
+- Upload processing
+- AI classification
+- Map integration
+- Realtime subscriptions
+- Operations console
+- Automated tests
+
+## Verification
+Not run yet.
+DOC
+
+echo ""
+echo "RoadSignal scaffold created."
+echo ""
+echo "Next:"
+echo "1. Add AGENTS.md and SKILL.md from the specification."
+echo "2. Open the project in your IDE."
+echo "3. Paste the implementation prompt."
+echo "4. Let the agent implement and verify the application."
+echo ""
+echo "The scaffold is not the finished product."
+```
+
+**Dependency policy:** Keep the generated lockfile. The IDE agent should verify compatible package versions and current APIs rather than mixing examples from different major releases.
+
+---
+
+# 2. Create `AGENTS.md`
+
+Place this file in the repository root.
+
+```md
+# AGENTS.md
+
+## Mission
+
+Build RoadSignal: a polished, accessible, responsive road-damage reporting
+and tracking application.
+
+Read SKILL.md completely before implementing.
+
+The deliverable is a functioning application, not a static mockup,
+architecture-only response, or collection of disconnected components.
+
+## Working rules
+
+1. Inspect the existing repository before editing.
+2. Preserve unrelated user work.
+3. Implement in small, testable milestones.
+4. Keep docs/IMPLEMENTATION_STATUS.md updated.
+5. Prefer straightforward, maintainable solutions over elaborate abstractions.
+6. Use strict TypeScript. Avoid `any` unless justified and isolated.
+7. Validate all untrusted inputs with Zod or an equivalent explicit validator.
+8. Never expose server credentials to client bundles.
+9. Never describe mock AI, mock GPS, or simulated realtime as real.
+10. Never silently substitute demo data when production services fail.
+11. Do not leave dead buttons, broken links, or placeholder interactions.
+12. Every visible control must work, be disabled with an explanation,
+    or be intentionally omitted.
+13. Implement loading, empty, error, permission-denied, and retry states.
+14. Do not claim tests passed unless the commands actually ran successfully.
+15. Do not claim the app is production-ready solely because it builds.
+16. Do not invent external image URLs, map-provider credentials, or API behavior.
+17. Use current official documentation when uncertain about a package API.
+18. Do not deploy, incur paid usage, or modify remote infrastructure without approval.
+
+## Priority order
+
+1. A fully working demo experience without external credentials.
+2. Excellent UI, responsive layout, and accessibility.
+3. Correct domain model and repository interfaces.
+4. Secure production database, authentication, and authorization.
+5. Production upload, geolocation, AI, and realtime integration.
+6. Tests, performance validation, and documentation.
+
+## Demo versus production
+
+Demo:
+- Runs with NEXT_PUBLIC_APP_MODE=demo.
+- Uses deterministic seeded fixtures.
+- Persists report changes locally.
+- Labels simulated AI and updates.
+- Requires no Supabase, AI, or map-provider credentials.
+
+Production:
+- Runs with NEXT_PUBLIC_APP_MODE=production.
+- Uses authenticated Supabase services.
+- Fails clearly when configuration is missing.
+- Must not return demo records as if they were production records.
+
+## Framework conventions
+
+- Next.js App Router.
+- Server Components by default.
+- Client Components only for browser APIs and interactive UI.
+- Route handlers for explicit HTTP endpoints.
+- Use proxy.ts if required by the installed Next.js version.
+- Use @supabase/ssr for Supabase session integration.
+- Request interception is not an authorization boundary.
+- Check authentication and authorization at the actual data mutation boundary.
+- Use the Tailwind conventions generated by the installed major version.
+- Do not copy obsolete configuration from older framework versions.
+
+## Required commands
+
+Before declaring completion, run:
+
+- npm run lint
+- npm run typecheck
+- npm run test
+- npm run build
+- npm run test:e2e
+
+Run Supabase integration and authorization tests when the local Supabase
+environment is available.
+
+If any command cannot run, state the exact reason and remaining risk.
+
+## Definition of done
+
+The product meets the acceptance criteria in SKILL.md, meaningful automated
+tests exist, configuration is documented, and no major workflow depends on
+unexplained placeholders.
+
+At completion, summarize:
+- What was implemented.
+- What was tested.
+- What is demo-only.
+- What requires credentials or infrastructure.
+- Any remaining limitations.
+```
+
+---
+
+# 3. Create `SKILL.md`
+
+This is the main implementation specification.
+
+```md
+---
+name: roadsignal-product-engineering
+description: Build a premium road-damage reporting application with AI-assisted classification, location capture, a community map, and transparent tracking.
+---
+
+# RoadSignal — Product and Engineering Specification
+
+## 1. Product objective
+
+RoadSignal helps residents report damaged roads in under a minute and
+understand what happens after submission.
+
+Core promise:
+
+“Spot it. Report it. Follow the fix.”
+
+Build an actual working application with a premium visual interface and
+clear operational boundaries.
+
+The main workflow is:
+
+1. Upload or capture a road image.
+2. Request location permission and confirm the reporting position.
+3. Show automatic AI-assisted damage classification.
+4. Submit the report.
+5. Display a public-safe community map entry.
+6. Track acknowledgement, assessment, repair, and resolution.
+
+Users must not need to manually type a damage category.
+
+AI may be unavailable or uncertain. Reporting must still work.
+
+## 2. Product identity
+
+Name: RoadSignal
+
+Tone:
+- Clear.
+- Helpful.
+- Trustworthy.
+- Contemporary.
+- Community-focused.
+- Never bureaucratic.
+
+Example interface copy:
+
+- “Better roads start with a signal.”
+- “Drop a photo. We’ll help identify the damage.”
+- “Location found. Confirm the pin before sending.”
+- “Your report is on the map.”
+- “The maintenance team has scheduled a repair.”
+- “AI needs a clearer image. You can still submit this report.”
+
+Do not imply government affiliation, guaranteed response times,
+or emergency dispatch integration.
+
+Include a small safety note:
+
+“Only capture photos when it is safe. Do not use this app while driving.
+For immediate danger, contact local emergency services.”
+
+## 3. Technology choices
+
+Use:
+
+- Next.js 16-compatible App Router.
+- React version supported by the generated Next.js project.
+- TypeScript with strict checking.
+- Tailwind CSS.
+- Supabase Postgres, Auth, Storage, Realtime, and Edge Functions.
+- PostGIS for spatial queries.
+- MapLibre GL JS for the production community map.
+- TanStack Query for interactive remote state.
+- React Hook Form and Zod for validated forms.
+- Lucide icons.
+- Motion for small, purposeful transitions.
+- Sonner for accessible notification feedback.
+- Vitest and Testing Library for unit/component tests.
+- Playwright and axe for end-to-end and accessibility checks.
+
+AI:
+- Implement a server-side provider adapter.
+- Use the AI SDK with a compatible vision-capable model.
+- Select the model through AI_MODEL.
+- Verify the installed AI SDK API.
+- For AI SDK 6, prefer structured output through generateText/Output.object
+  rather than introducing deprecated generateObject usage.
+
+Avoid:
+- Redux unless a concrete requirement emerges.
+- Multiple competing component systems.
+- Heavy dashboard templates.
+- A separate microservice per feature.
+- Client-side AI provider credentials.
+- Rendering the entire application as one giant client component.
+
+## 4. Required routes
+
+Public:
+- /                     Dashboard / product overview.
+- /map                  Community map.
+- /reports/[id]         Public-safe report detail.
+
+Reporting:
+- /report/new           Reporting flow.
+- /my-reports           Current user’s reports.
+
+Authentication:
+- /login
+- /auth/callback
+
+Operations:
+- /operations           Staff report queue.
+- /operations/reports/[id]
+
+Operational:
+- /api/health           Minimal health response without secrets.
+
+Demo mode:
+- Reporting and “My reports” work without an external auth provider.
+- A clearly identified local demo identity is allowed.
+- The operations demo uses an explicitly labelled preview mode.
+
+Production:
+- Browsing public reports does not require login.
+- Creating persistent reports requires authentication.
+- Preserve the local draft through authentication.
+- Operations routes require an authorized staff role.
+
+## 5. Visual design direction
+
+### 5.1 Overall aesthetic
+
+Build a premium civic-tech startup interface.
+
+The layout should feel:
+- Open.
+- Quiet.
+- Spatial.
+- Precise.
+- Friendly.
+- Slightly futuristic.
+
+Use:
+- Soft off-white backgrounds.
+- Deep navy text.
+- Bright teal as the main accent.
+- Restrained translucent surfaces.
+- Thin neutral borders.
+- Rounded cards.
+- Generous whitespace.
+- Crisp typography.
+- Subtle map layering.
+
+Avoid:
+- Excessive gradients.
+- Neon everywhere.
+- Heavy dark administrative dashboards.
+- Large decorative illustrations.
+- Repeated generic statistic cards.
+- Dense government-form layouts.
+- Emoji as interface icons.
+
+### 5.2 Design tokens
+
+Implement CSS custom properties and map them into Tailwind.
+
+Suggested palette:
+
+--background: #F6F8FB
+--surface: #FFFFFF
+--surface-muted: #EDF2F7
+--text-primary: #132238
+--text-secondary: #617086
+--border: #E1E8F0
+
+--brand: #087F78
+--brand-hover: #06675F
+--brand-soft: #E0F5F1
+--brand-bright: #37D5BC
+
+--reported: #B45309
+--reported-soft: #FFF3D8
+--repairing: #4338CA
+--repairing-soft: #ECEBFF
+--fixed: #047857
+--fixed-soft: #DCFCE7
+--danger: #B91C1C
+
+Use brand-bright decoratively or with dark text.
+Verify all text/background combinations rather than assuming contrast.
+
+Typography:
+- Inter if self-hosted or properly bundled.
+- Reliable system sans-serif fallback.
+- Body text approximately 15–16px.
+- Form controls at least 16px on mobile.
+- Large page titles with tight but readable tracking.
+- Tabular numbers for coordinates and metrics.
+
+Radii:
+- Controls: 10–12px.
+- Cards: 18–24px.
+- Pills: fully rounded.
+
+Shadows:
+- Soft, low-opacity, broad shadows.
+- Prefer borders and spacing over heavy shadows.
+
+Glass:
+- Use selectively on map overlays and navigation.
+- Include an opaque fallback.
+- Keep content readable over complex map backgrounds.
+
+### 5.3 Layout
+
+Desktop:
+- Compact top navigation.
+- Centered max-width content area around 1440px.
+- 24–32px horizontal gutters.
+- Twelve-column main grid.
+- Main dashboard content approximately 8 columns.
+- Reporting/location side panel approximately 4 columns.
+- Large community map.
+- Clean activity feed below or alongside the map.
+
+Tablet:
+- Two-column layout where space permits.
+- Reporting panel can move below the map.
+
+Mobile:
+- Single-column layout.
+- Compact header.
+- Bottom navigation with:
+  Home, Map, Report, My reports.
+- Report action visually emphasized.
+- Map details appear in an accessible bottom sheet.
+- Bottom navigation respects safe-area insets.
+- No horizontal page overflow.
+
+### 5.4 Motion
+
+Use motion only to clarify state changes.
+
+Examples:
+- Upload panel border transition.
+- Classification result fade/slide.
+- Report marker selection.
+- Progress step transition.
+- Small success confirmation.
+
+Timing:
+- Most transitions: 120–220ms.
+- Avoid infinite decorative animation.
+- Respect prefers-reduced-motion.
+
+## 6. Dashboard requirements
+
+Header:
+- RoadSignal brand mark.
+- Overview, Community map, My reports.
+- Compact demo/live indicator.
+- Primary “Report damage” button.
+- User menu or sign-in action.
+
+Hero:
+- Eyebrow: “A clearer path forward”.
+- Headline: “Better roads start with a signal.”
+- Brief explanation.
+- Primary action: “Report road damage”.
+- Secondary action: “Explore the map”.
+- Small trust line describing transparent tracking.
+
+Dashboard content:
+- Large community map card.
+- Upload shortcut card.
+- Current location preview.
+- Compact local activity metrics.
+- Recent nearby reports.
+- Report lifecycle explanation or recent activity feed.
+
+Metrics must be derived from data.
+Never display fabricated live claims.
+
+Example demo metrics:
+- Open reports.
+- Currently repairing.
+- Fixed this month.
+
+Label demo data clearly.
+
+## 7. Reporting flow
+
+Use a focused three-step flow:
+
+1. Evidence.
+2. Location and review.
+3. Submitted.
+
+AI classification appears within this flow; it is not an extra form page.
+
+Preserve draft progress on refresh where reasonable.
+
+### 7.1 Evidence upload
+
+Support:
+- JPEG.
+- PNG.
+- WebP.
+- Short MP4 and WebM videos when browser decoding is supported.
+
+Initial limits:
+- Maximum 5 files.
+- Maximum 10 MB per image.
+- Maximum 30 MB per video.
+- Maximum 20-second video.
+- Maximum 50 MB total per report.
+
+Make limits configurable.
+
+UI:
+- Drag-and-drop area.
+- File picker.
+- Mobile camera capture where supported.
+- Thumbnail previews.
+- Remove and replace actions.
+- Upload progress.
+- Per-file errors.
+- Retry failed uploads.
+
+Do not promise universal camera or codec support.
+
+When decoding is unavailable:
+- Explain the issue.
+- Ask the user to upload a supported image.
+- Do not let the form hang indefinitely.
+
+Validation:
+- Check browser-side limits for immediate feedback.
+- Revalidate server-side.
+- Inspect file signatures, not only extensions.
+- Limit decoded pixel dimensions.
+- Reject SVG, executables, and unsupported content.
+- Revoke object URLs when no longer needed.
+
+Privacy:
+- Remove image metadata during trusted processing.
+- Keep raw uploads private.
+- Never publish original media by default.
+
+### 7.2 Video handling
+
+Do not imply that a still-image model understands an entire video.
+
+Initial implementation:
+- Extract up to 3 representative frames in the browser when supported.
+- Present extracted frames as the evidence preview.
+- Upload those frames through the normal trusted image pipeline.
+- Keep the original video private if retained.
+- Label classification as based on sampled frames.
+
+Use a timeout and explicit failure state.
+
+Do not add a heavyweight server-side transcoding stack for the first version.
+Document this limitation.
+
+### 7.3 AI damage classification
+
+Component states:
+- No evidence.
+- Uploading.
+- Queued.
+- Analyzing.
+- Results available.
+- Low certainty.
+- Unavailable.
+- Failed with retry.
+
+Example result presentation:
+- Pothole — 98%.
+- Crack — 85%.
+- Surface wear — 41%.
+
+Important:
+- These percentages represent model-reported scores, not validated accuracy.
+- Use a tooltip or caption:
+  “AI estimate. Not a verified engineering assessment.”
+- If the provider does not return meaningful scores, omit percentages.
+- Never invent a probability because the design wants a percentage.
+
+Supported categories:
+- pothole
+- crack
+- surface_wear
+- subsidence
+- obstruction
+- standing_water
+- other
+- uncertain
+
+Possible sinkholes:
+- Display as “Possible sinkhole / subsidence”.
+- Route for human review.
+- Do not treat an image-only result as a confirmed structural diagnosis.
+
+Structured output:
+- labels
+- primaryCategory
+- suggestedSeverity
+- summary
+- needsHumanReview
+- imageQualityIssues
+
+Each label contains:
+- category
+- optional score between 0 and 1
+
+AI severity:
+- low
+- medium
+- high
+- unknown
+
+Operational priority is a separate staff-controlled field.
+
+Users:
+- Do not have to type a category.
+- May optionally flag “This does not look right”.
+- May submit while classification is unavailable or pending.
+- Must see whether classification is provisional or reviewed.
+
+Do not fabricate real AI analysis in demo mode.
+Use deterministic sample results and a visible “Demo analysis” label.
+
+### 7.4 Optional notes
+
+Provide:
+- Optional description.
+- Optional location context such as “outside the station entrance”.
+
+Do not require:
+- A long narrative.
+- A typed damage category.
+- A manually entered address if coordinates are available.
+
+## 8. Location capture
+
+### 8.1 Honest permission flow
+
+A website cannot access GPS without browser permission.
+
+Provide a prominent:
+“Use my location” button.
+
+After consent:
+- Start location acquisition.
+- Show acquisition state.
+- Show latitude and longitude.
+- Show accuracy in meters.
+- Show last-updated time.
+- Show the pin on a mini-map.
+
+Use:
+- getCurrentPosition for initial acquisition.
+- watchPosition while the location confirmation panel is active.
+- clearWatch on unmount or when location capture is disabled.
+
+Do not continuously track users after submission.
+
+### 8.2 Location states
+
+- Not requested.
+- Requesting.
+- Acquired.
+- Permission denied.
+- Timed out.
+- Unavailable.
+- Low accuracy.
+- Manual position selected.
+
+If GPS fails:
+- Let the user place a pin manually.
+- Permit coordinate entry as an accessible fallback.
+- Never block reporting solely because permission was denied.
+
+### 8.3 Exact reporting position
+
+Live device location and confirmed report location are different concepts.
+
+Rules:
+- Follow live location until the user confirms or manually moves the pin.
+- Once manually adjusted, new GPS readings must not overwrite the choice.
+- Show “Return to my location” to opt back in.
+- Require confirmation before submission.
+
+Store:
+- Exact latitude.
+- Exact longitude.
+- Accuracy.
+- Position source: gps or manual.
+- Location capture timestamp.
+
+Coordinates shown to the reporter can be precise.
+Public map coordinates must use a privacy-preserving derived location.
+
+### 8.4 Reverse geocoding
+
+Optional enhancement, not a submission dependency.
+
+- Use a configured provider.
+- Cache rounded-coordinate results.
+- Respect provider limits and licensing.
+- Do not call an unrestricted public geocoder on every GPS update.
+- Do not expose private API keys.
+- If unavailable, display coordinates instead of a fabricated address.
+
+## 9. Community map
+
+### 9.1 Production map
+
+Use MapLibre GL JS with a configured licensed map style.
+
+Load the interactive map client-side.
+Do not block the first render on the map bundle.
+
+Required behavior:
+- Pan and zoom.
+- Cluster markers at low zoom.
+- Show individual markers at high zoom.
+- Filter by status and damage category.
+- Select a marker.
+- Open a report preview.
+- Navigate to report detail.
+- Recenter using explicit user permission.
+- Reset filters.
+- Switch between map and accessible list view.
+
+Optional but desirable:
+- Density/heatmap toggle.
+- Time-range filter.
+- Search by configured geocoding provider.
+
+If heatmap mode is implemented:
+- Describe it as report density.
+- Do not call it a verified danger map.
+- Do not imply density equals road severity.
+
+### 9.2 Status visuals
+
+Public status groups:
+- Reported: amber dot plus label.
+- Repairing: indigo tool icon plus label.
+- Fixed: green check plus label.
+
+Detailed status appears in the report panel.
+
+Do not use color as the sole status indicator.
+
+### 9.3 Map interactions
+
+Desktop:
+- Floating filters.
+- Map controls in a consistent corner.
+- Selected report preview anchored beside or above the map.
+
+Mobile:
+- Filter sheet.
+- Report detail bottom sheet.
+- Accessible dismissal.
+- No accidental conflict with bottom navigation.
+
+Prefer MapLibre layers over hundreds of React DOM markers.
+
+### 9.4 Queries
+
+Fetch by visible map bounds.
+
+- Debounce viewport requests.
+- Cancel obsolete requests.
+- Cap results.
+- Paginate the companion list.
+- Handle antimeridian bounds correctly or document and enforce a
+  deliberately limited supported region for the first release.
+- Use a spatial index.
+- Use a minimum movement/zoom threshold before refetching.
+
+Do not fetch every report in the database on each map movement.
+
+### 9.5 No-key demo map
+
+The app must look complete without a map-provider credential.
+
+Provide a self-contained schematic city map:
+- Drawn with local SVG.
+- Seeded road lines, blocks, and river/canal shapes.
+- Clickable report markers.
+- Working status filters.
+- Working marker selection.
+- Clearly labelled “Demo city map — schematic”.
+
+This is not a real basemap and must not be presented as one.
+
+When a production map style is unavailable:
+- Show a clear configuration message.
+- Keep the accessible report list available.
+- Never silently show a schematic as real geographic data.
+
+## 10. Transparent report tracking
+
+### 10.1 Canonical lifecycle
+
+Use these internal statuses:
+
+- reported
+- acknowledged
+- assessing
+- scheduled
+- repairing
+- resolved
+- rejected
+- duplicate
+
+Public mapping:
+- Reported:
+  reported, acknowledged, assessing, scheduled
+- Repairing:
+  repairing
+- Fixed:
+  resolved
+
+Rejected and duplicate remain distinct and visible where appropriate.
+
+### 10.2 Timeline
+
+Show chronological events:
+- Report submitted.
+- Report acknowledged.
+- Assessment started.
+- Repair scheduled.
+- Repair in progress.
+- Repair completed.
+
+Each event may contain:
+- Timestamp.
+- Public note.
+- Responsible team display name.
+- Optional scheduled date.
+- Optional resolution evidence.
+
+Do not invent an estimated repair date.
+Show “Not scheduled yet” if no schedule exists.
+
+Timeline events must be server-generated and append-only.
+
+### 10.3 Reopening
+
+Support a controlled staff transition:
+- resolved → assessing
+
+Require a reason.
+Append a reopening event.
+Never delete the original resolution history.
+
+### 10.4 Staff operations
+
+Provide a real minimal operations interface.
+
+Capabilities:
+- Filter and inspect incoming reports.
+- See exact coordinates when authorized.
+- Inspect private evidence when authorized.
+- Review AI suggestions.
+- Set operational priority.
+- Assign a team.
+- Add public or internal notes.
+- Change status through permitted transitions.
+- Mark duplicates using a canonical report ID.
+- Add resolution evidence.
+
+Reporter users cannot perform these actions.
+
+Internal notes must never appear in public API responses.
+
+## 11. Core domain model
+
+Define shared TypeScript types and matching validation schemas.
+
+Recommended types:
+
+DamageCategory
+ReportStatus
+PublicStatus
+SuggestedSeverity
+OperationalPriority
+LocationSource
+ClassificationState
+MediaState
+UserRole
+
+ReportSummary:
+- id
+- publicId
+- title
+- category
+- publicStatus
+- detailedStatus
+- publicLatitude
+- publicLongitude
+- createdAt
+- updatedAt
+- optional localityLabel
+- optional approvedThumbnailUrl
+
+OwnerReport:
+- public summary fields
+- owner-visible exact location
+- AI analysis
+- private media references
+- draft/report state
+- owner-visible events
+
+PublicReportDetail:
+- public summary fields
+- public timeline
+- optional moderated description
+- optional reviewed AI summary
+
+Never reuse an unrestricted database row as a public response type.
+
+## 12. Database design
+
+Use migrations, not manual-only dashboard setup.
+
+Enable PostGIS in a controlled extensions schema.
+Use spatial indexes for viewport queries.
+
+Suggested tables:
+
+### profiles
+
+- id references auth.users
+- display_name
+- created_at
+- updated_at
+
+Do not store an editable authorization role on a profile row
+that users can freely update.
+
+### user_roles
+
+- user_id
+- role: reporter, staff, admin
+- assigned_at
+- assigned_by
+
+Users cannot grant themselves roles.
+
+### report_drafts
+
+- id
+- owner_id
+- optional exact location
+- optional notes
+- current classification state
+- expires_at
+- created_at
+- updated_at
+
+### reports
+
+- id
+- public_id
+- owner_id
+- category
+- status
+- operational_priority
+- exact_location
+- public_location
+- gps_accuracy_m
+- location_source
+- location_captured_at
+- description
+- locality_label
+- assigned_team_id
+- canonical_report_id
+- scheduled_for
+- resolved_at
+- visibility
+- version
+- created_at
+- updated_at
+
+Use a server-controlled integer version for optimistic concurrency.
+
+### report_media
+
+- id
+- owner_id
+- draft_id or report_id
+- private_original_path
+- sanitized_path
+- optional approved_public_derivative_path
+- mime_type
+- byte_size
+- checksum
+- processing_state
+- created_at
+
+Add a constraint ensuring the intended ownership relationship.
+Do not permit arbitrary cross-user media attachment.
+
+### ai_analyses
+
+- id
+- media_id
+- draft_id or report_id
+- provider
+- model
+- schema_version
+- prompt_version
+- labels as validated JSON
+- primary_category
+- suggested_severity
+- needs_human_review
+- quality_issues
+- state
+- completed_at
+- created_at
+
+Avoid storing unnecessary provider payloads that may include sensitive data.
+
+### report_status_events
+
+- id
+- report_id
+- from_status
+- to_status
+- public_note
+- internal_note
+- actor_id
+- created_at
+
+Expose a public-safe projection that excludes internal_note and private identity.
+
+### report_jobs
+
+- id
+- kind
+- draft_id or report_id
+- media_id
+- status
+- attempts
+- available_at
+- locked_until
+- locked_by
+- last_error_code
+- deduplication_key
+- created_at
+- updated_at
+
+Use a unique deduplication key.
+
+### public_report_features
+
+A deliberately public-safe map projection:
+- report_id
+- category
+- public_status
+- detailed_status
+- approximate_location
+- approved_public_summary
+- updated_at
+- version
+
+Do not include owner IDs, exact GPS, raw notes, or private storage paths.
+
+### idempotency_records
+
+- user_id
+- key
+- operation
+- request_hash
+- response_reference
+- created_at
+
+Use a unique constraint on user, operation, and key.
+
+### teams
+
+- id
+- name
+- public_display_name
+
+## 13. Privacy and authorization
+
+### 13.1 Public location
+
+Public locations should be snapped or generalized to approximately
+a 30–50 meter grid, with the limitation explained.
+
+Keep exact report coordinates available only to:
+- The report owner.
+- Authorized staff.
+
+Use an appropriate projected/local-meter approach.
+Do not assume an arbitrary decimal truncation is uniformly measured in meters.
+
+### 13.2 Public map projection
+
+Keep public data separate from private report rows.
+
+Prefer:
+- An explicitly sanitized projection table.
+- Or a carefully secured RPC returning only allowed columns.
+
+Avoid casual use of views that bypass underlying row-level security.
+Verify the actual security behavior of the chosen view/RPC approach.
+
+### 13.3 RLS policies
+
+At minimum:
+
+Profiles:
+- Users read/update permitted fields on their own profile.
+
+Drafts:
+- Owners access their own drafts.
+
+Reports:
+- Owners read their own reports.
+- Staff access reports within their role.
+- Public visitors access only the public-safe projection.
+
+Media:
+- Owners access their own evidence.
+- Authorized staff access evidence.
+- No default public listing.
+
+AI:
+- Owners and staff access relevant analysis.
+- Public output only through reviewed/sanitized fields.
+
+Events:
+- Users cannot forge operational timeline events.
+- Public sees only public fields.
+
+Roles:
+- Normal users cannot mutate authorization roles.
+
+Jobs:
+- No client read/write access.
+
+### 13.4 Mutations
+
+Use narrowly scoped transactional functions or server operations.
+
+Status transitions must:
+- Verify the actor.
+- Verify their role.
+- Validate the transition.
+- Compare the expected report version.
+- Update status and version.
+- Append a timeline event.
+- Update the public-safe projection.
+- Commit atomically.
+
+Use the ordinary user session for ordinary user requests.
+
+Service-role credentials are reserved for trusted processing jobs and
+explicitly justified maintenance operations.
+
+A service-role client must not become a shortcut around authorization.
+
+### 13.5 Media privacy
+
+Original uploads remain private.
+
+Public images:
+- Disabled by default in the initial release.
+- May be enabled only after moderation and appropriate redaction.
+- Never assume stripping EXIF removes faces, license plates, or house details.
+
+Use expiring signed URLs for authorized private viewing.
+
+Do not log:
+- Signed URLs.
+- Raw GPS coordinates.
+- Access tokens.
+- Uploaded image bodies.
+- AI provider credentials.
+
+## 14. Backend workflow
+
+### 14.1 Draft and upload
+
+1. Authenticated user creates a draft.
+2. Server issues a scoped upload intent.
+3. Browser uploads directly to a private storage object.
+4. Browser calls finalize-upload.
+5. Server verifies object ownership and metadata.
+6. Server enqueues a media-processing job.
+7. A worker validates and sanitizes the image.
+8. A classification job is enqueued for eligible sanitized evidence.
+9. The UI receives or polls for state updates.
+
+The route handler must not send the response and then rely on an
+unawaited promise continuing in a serverless runtime.
+
+### 14.2 Submit
+
+1. Validate draft ownership.
+2. Validate a confirmed location.
+3. Ensure at least one acceptable evidence item exists.
+4. Create the report using an idempotency key.
+5. Attach the draft media/analysis.
+6. Append the initial reported event.
+7. Write the public-safe map projection.
+8. Return the same report on an identical retry.
+
+Report creation must not depend on successful AI classification.
+
+Pending or failed classification becomes:
+“AI review pending” or “Needs human review”.
+
+### 14.3 Background processing
+
+Use durable database-backed jobs.
+
+Required semantics:
+- Transactional job claim.
+- FOR UPDATE SKIP LOCKED or equivalent.
+- Lease expiration.
+- Bounded retries.
+- Exponential backoff.
+- Idempotent completion.
+- Deduplication by content hash/model/prompt version within an appropriate scope.
+- Stale-job recovery.
+- Sanitized error codes.
+- Dead-letter or permanently-failed state.
+
+A cron-triggered worker is the recovery mechanism.
+
+For lower latency:
+- Trigger a best-effort wake-up after durable enqueue.
+- A failed wake-up must not lose the job.
+
+Protect worker invocation using server-side authentication.
+Do not expose an unauthenticated “run jobs” endpoint.
+
+Document how the worker is deployed and scheduled.
+
+### 14.4 AI request safety
+
+- Run provider calls only on trusted servers/workers.
+- Use sanitized images with bounded dimensions.
+- Enforce timeout, retry, and cost limits.
+- Validate returned structured output.
+- Treat text visible inside uploaded images as untrusted data.
+- Instruct the model not to follow instructions embedded in images.
+- Do not give the classification model tools or privileged actions.
+- Do not automatically change repair status based on AI output.
+- Do not claim the system has engineering-grade detection accuracy.
+
+## 15. API contract
+
+Use one consistent error shape:
+
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Please confirm the report location.",
+    "fieldErrors": {},
+    "requestId": "..."
+  }
+}
+
+Recommended endpoints:
+
+POST /api/drafts
+- Create an owned draft.
+
+POST /api/drafts/[id]/upload-intent
+- Validate file metadata.
+- Return a scoped upload destination.
+
+POST /api/drafts/[id]/finalize-upload
+- Confirm object ownership.
+- Enqueue trusted processing.
+
+GET /api/drafts/[id]
+- Return owner-visible draft and processing status.
+
+POST /api/reports
+- Submit a draft.
+- Require an idempotency key.
+
+GET /api/reports
+- Return public-safe bounded results.
+- Accept bbox, filters, and cursor.
+
+GET /api/reports/[id]
+- Return public-safe report detail.
+
+GET /api/me/reports
+- Return the authenticated owner’s reports.
+
+POST /api/operations/reports/[id]/transition
+- Staff-only transactional status transition.
+- Require expectedVersion.
+
+POST /api/operations/reports/[id]/assignment
+- Staff-only team assignment.
+
+GET /api/health
+- Return minimal application health.
+
+Apply:
+- Authentication where required.
+- Authorization on every mutation.
+- Origin/CSRF safeguards appropriate to cookie authentication.
+- Persistent rate limits for expensive endpoints.
+- Request-size limits.
+- Strict validation.
+- No shared caching of private responses.
+
+## 16. Realtime behavior
+
+### 16.1 Public map
+
+Subscribe only to the public-safe map projection.
+
+On updates:
+- Debounce invalidation of the current bounded map query.
+- Update the selected report when relevant.
+- Avoid fetching the entire city.
+- Clean up subscriptions on unmount.
+
+Do not broadcast private reports and rely on frontend filtering
+to hide sensitive fields.
+
+For the first release, a city-scoped projection subscription with bounded
+query refresh is acceptable.
+
+For larger scale:
+- Add region/grid channels.
+- Aggregate clusters server-side.
+- Avoid claiming the initial design handles unlimited global fanout.
+
+### 16.2 Owner tracking
+
+Subscribe to owner-authorized report/job state.
+
+When realtime disconnects:
+- Show “Reconnecting”.
+- Use a modest polling fallback while the relevant page is visible.
+- Refetch on reconnect.
+- Stop unnecessary polling when the page is hidden.
+
+Do not display a “Live” indicator when disconnected.
+
+### 16.3 Ordering
+
+Treat server timestamps and versions as authoritative.
+
+- Ignore stale versions.
+- Deduplicate events by event ID.
+- Refetch after reconnect.
+- Avoid duplicate timeline entries.
+
+## 17. Repository architecture
+
+Use a shared repository interface so demo mode and production mode share UI.
+
+Example capabilities:
+
+- listPublicReports
+- getPublicReport
+- listMyReports
+- createDraft
+- getDraft
+- requestUpload
+- finalizeUpload
+- submitReport
+- transitionReport
+- subscribeToPublicChanges
+- subscribeToMyReport
+
+Implement:
+- DemoReportRepository.
+- Supabase-backed production access.
+
+Do not put SQL calls directly into visual components.
+
+Do not scatter app-mode checks across every component.
+Select the appropriate adapter at a clear application boundary.
+
+Use TanStack Query for interactive reads and mutations.
+Use local component state for transient UI state.
+Avoid duplicating the same remote state in multiple stores.
+
+## 18. Demo mode
+
+Demo mode is a first-class deliverable.
+
+Requirements:
+- Runs without credentials.
+- Seed approximately 18–24 reports.
+- Use varied categories and lifecycle states.
+- Include realistic timestamps, public notes, and locations.
+- Use fixed seed data for reproducible tests.
+- Persist new demo reports locally.
+- Provide “Reset demo data”.
+- Show “Demo mode” in the interface.
+- Never silently call a paid AI API.
+
+Use IndexedDB for binary evidence if persistence is needed.
+Do not store large base64 media in localStorage.
+
+Demo behavior:
+- Image upload preview works.
+- GPS can use real browser permission if the user requests it.
+- Schematic map pin selection works.
+- Sample AI output is clearly labelled.
+- Report submission creates a real local demo record.
+- The record appears in My reports and the demo map.
+- A labelled “Simulate next update” control can progress its timeline.
+
+Simulated operations:
+- Explicitly labelled.
+- Never imply a real maintenance team acknowledged a report.
+
+All statistics derive from the local dataset.
+
+## 19. Accessibility
+
+Target WCAG 2.2 AA.
+
+Required:
+- Semantic landmarks.
+- Skip-to-content link.
+- Visible keyboard focus.
+- Accessible field labels.
+- Associated error messages.
+- Keyboard-operable dialogs and sheets.
+- Correct focus return.
+- No keyboard trap.
+- At least 44px preferred touch targets.
+- Status text in addition to color.
+- Reduced-motion support.
+- Screen-reader announcement for upload and classification completion.
+- No continuous announcement of changing GPS coordinates.
+- Accessible list alternative to the map.
+- Manual location entry alternative to dragging a pin.
+
+Do not make the map the only way to complete a report.
+
+## 20. Performance
+
+Performance goals are targets, not unverified claims.
+
+Aim for:
+- LCP under 2.5s under representative mobile conditions.
+- INP under 200ms.
+- CLS under 0.1.
+- Minimal initial JavaScript outside the map route.
+- No initial map bundle on screens that do not need it.
+
+Implementation:
+- Lazy-load MapLibre.
+- Lazy-load large evidence previews.
+- Use correctly sized image thumbnails.
+- Avoid layout shifts by reserving dimensions.
+- Query by viewport.
+- Debounce filters and map movement.
+- Avoid serial network waterfalls.
+- Cache public-safe reads briefly where appropriate.
+- Never cache private data in shared caches.
+- Use connection pooling where required.
+- Add indexes for owner, status, created_at, and spatial lookups.
+
+Measure with realistic data and document the method.
+Do not print invented benchmark scores.
+
+## 21. Required folder structure
+
+Adapt only when necessary and document significant deviations.
+
+roadsignal/
+├── AGENTS.md
+├── SKILL.md
+├── README.md
+├── .env.example
+├── package.json
+├── package-lock.json
+├── next.config.ts
+├── eslint.config.mjs
+├── playwright.config.ts
+├── vitest.config.ts
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── SECURITY.md
+│   ├── DEPLOYMENT.md
+│   ├── TESTING.md
+│   └── IMPLEMENTATION_STATUS.md
+├── public/
+│   └── demo/
+│       ├── city-map.svg
+│       └── media/
+├── scripts/
+│   └── seed-demo.ts
+├── src/
+│   ├── app/
+│   │   ├── layout.tsx
+│   │   ├── globals.css
+│   │   ├── providers.tsx
+│   │   ├── page.tsx
+│   │   ├── loading.tsx
+│   │   ├── error.tsx
+│   │   ├── not-found.tsx
+│   │   ├── map/page.tsx
+│   │   ├── report/new/page.tsx
+│   │   ├── my-reports/page.tsx
+│   │   ├── reports/[id]/page.tsx
+│   │   ├── login/page.tsx
+│   │   ├── auth/callback/route.ts
+│   │   ├── operations/
+│   │   │   ├── page.tsx
+│   │   │   └── reports/[id]/page.tsx
+│   │   └── api/
+│   │       ├── health/route.ts
+│   │       ├── drafts/
+│   │       │   ├── route.ts
+│   │       │   └── [id]/
+│   │       │       ├── route.ts
+│   │       │       ├── upload-intent/route.ts
+│   │       │       └── finalize-upload/route.ts
+│   │       ├── reports/
+│   │       │   ├── route.ts
+│   │       │   └── [id]/route.ts
+│   │       ├── me/reports/route.ts
+│   │       └── operations/reports/[id]/
+│   │           ├── transition/route.ts
+│   │           └── assignment/route.ts
+│   ├── components/
+│   │   ├── ui/
+│   │   │   ├── button.tsx
+│   │   │   ├── card.tsx
+│   │   │   ├── badge.tsx
+│   │   │   ├── dialog.tsx
+│   │   │   ├── sheet.tsx
+│   │   │   ├── input.tsx
+│   │   │   ├── skeleton.tsx
+│   │   │   ├── empty-state.tsx
+│   │   │   └── error-state.tsx
+│   │   └── layout/
+│   │       ├── app-header.tsx
+│   │       ├── mobile-navigation.tsx
+│   │       ├── page-container.tsx
+│   │       └── mode-indicator.tsx
+│   ├── features/
+│   │   ├── dashboard/
+│   │   │   └── components/
+│   │   │       ├── dashboard-hero.tsx
+│   │   │       ├── community-metrics.tsx
+│   │   │       └── recent-reports.tsx
+│   │   ├── reports/
+│   │   │   ├── components/
+│   │   │   │   ├── report-wizard.tsx
+│   │   │   │   ├── evidence-uploader.tsx
+│   │   │   │   ├── media-preview.tsx
+│   │   │   │   ├── report-review.tsx
+│   │   │   │   ├── submission-success.tsx
+│   │   │   │   ├── report-card.tsx
+│   │   │   │   └── report-timeline.tsx
+│   │   │   ├── hooks/
+│   │   │   │   ├── use-report-draft.ts
+│   │   │   │   └── use-report-subscription.ts
+│   │   │   ├── schemas.ts
+│   │   │   ├── types.ts
+│   │   │   └── status-machine.ts
+│   │   ├── map/
+│   │   │   ├── components/
+│   │   │   │   ├── community-map.tsx
+│   │   │   │   ├── production-map.tsx
+│   │   │   │   ├── demo-city-map.tsx
+│   │   │   │   ├── map-filters.tsx
+│   │   │   │   ├── map-legend.tsx
+│   │   │   │   └── selected-report-panel.tsx
+│   │   │   ├── hooks/use-map-reports.ts
+│   │   │   └── geo.ts
+│   │   ├── location/
+│   │   │   ├── location-panel.tsx
+│   │   │   ├── location-mini-map.tsx
+│   │   │   ├── use-geolocation.ts
+│   │   │   └── schemas.ts
+│   │   ├── ai/
+│   │   │   ├── classification-panel.tsx
+│   │   │   ├── schemas.ts
+│   │   │   ├── types.ts
+│   │   │   └── demo-classifier.ts
+│   │   ├── auth/
+│   │   │   ├── login-form.tsx
+│   │   │   └── session-provider.tsx
+│   │   └── operations/
+│   │       ├── report-queue.tsx
+│   │       ├── status-transition-form.tsx
+│   │       └── assignment-form.tsx
+│   ├── lib/
+│   │   ├── env.ts
+│   │   ├── utils.ts
+│   │   ├── query-client.ts
+│   │   ├── repositories/
+│   │   │   ├── report-repository.ts
+│   │   │   ├── demo-report-repository.ts
+│   │   │   ├── production-report-repository.ts
+│   │   │   └── repository-provider.tsx
+│   │   ├── demo/
+│   │   │   ├── seed.ts
+│   │   │   ├── storage.ts
+│   │   │   └── events.ts
+│   │   ├── supabase/
+│   │   │   ├── client.ts
+│   │   │   ├── server.ts
+│   │   │   ├── admin.ts
+│   │   │   └── session.ts
+│   │   ├── server/
+│   │   │   ├── authorization.ts
+│   │   │   ├── api-errors.ts
+│   │   │   ├── rate-limit.ts
+│   │   │   └── idempotency.ts
+│   │   └── validation/
+│   │       ├── media.ts
+│   │       └── location.ts
+│   ├── types/
+│   │   └── database.ts
+│   └── proxy.ts
+├── supabase/
+│   ├── config.toml
+│   ├── seed.sql
+│   ├── migrations/
+│   │   ├── 0001_extensions_and_tables.sql
+│   │   ├── 0002_indexes_and_constraints.sql
+│   │   ├── 0003_rls_and_storage.sql
+│   │   ├── 0004_transactional_functions.sql
+│   │   └── 0005_realtime_and_jobs.sql
+│   ├── functions/
+│   │   ├── _shared/
+│   │   │   ├── auth.ts
+│   │   │   ├── jobs.ts
+│   │   │   └── ai-schema.ts
+│   │   ├── process-media/index.ts
+│   │   └── classify-damage/index.ts
+│   └── tests/
+│       └── authorization.sql
+└── tests/
+    ├── unit/
+    ├── integration/
+    └── e2e/
+
+Do not create empty files solely to match the tree.
+Implement them when needed or document a justified consolidation.
+
+Keep Edge Function runtime dependencies separate from Next.js-specific code.
+
+## 22. Testing requirements
+
+### Unit tests
+
+Cover:
+- Status transition rules.
+- Public status mapping.
+- AI output validation.
+- Location validation.
+- GPS versus manual pin behavior.
+- Upload constraints.
+- Public location generalization.
+- Public DTO sanitization.
+- Idempotency conflict handling.
+- Demo reset and persistence.
+
+### Integration tests
+
+Cover:
+- Anonymous public-safe report reads.
+- Owner access to own reports.
+- Denial of access to other users’ private reports.
+- Denial of self-assigned staff privileges.
+- Staff-only status transitions.
+- Atomic status update and timeline insertion.
+- Media ownership verification.
+- Job claim concurrency and lease recovery.
+- Duplicate submission returning one report.
+- No exact GPS or private media paths in public output.
+
+### End-to-end tests
+
+1. Load dashboard in demo mode without credentials.
+2. Upload a valid image.
+3. See explicitly labelled demo classification.
+4. Grant mocked GPS permission.
+5. Confirm the location.
+6. Submit the report.
+7. Find it in My reports.
+8. Open the new report.
+9. Filter the community map.
+10. Select its marker.
+11. Simulate a timeline update.
+12. Reload and verify persistence.
+13. Reset demo data.
+14. Deny GPS and complete with manual location.
+15. Fail AI and still submit.
+16. Reject an unsupported file.
+17. Test keyboard navigation.
+18. Test mobile viewport overflow.
+19. Run axe on primary screens.
+20. Verify production misconfiguration does not expose demo data.
+
+External services must be mocked or locally emulated in automated tests.
+Do not require paid API usage for normal test runs.
+
+## 23. Visual verification
+
+Capture screenshots at:
+- 1440px desktop.
+- 1024px tablet.
+- 390px mobile.
+
+Review:
+- Header alignment.
+- Hero hierarchy.
+- Card spacing.
+- Map proportions.
+- Filter wrapping.
+- Upload states.
+- Timeline readability.
+- Bottom-navigation overlap.
+- Long text.
+- Empty and error states.
+
+Do not stop after a successful compile.
+Inspect the rendered interface.
+
+## 24. Implementation sequence
+
+### Milestone 1 — Foundation
+
+- Inspect the scaffold.
+- Validate package compatibility.
+- Implement tokens and typography.
+- Implement app shell and navigation.
+- Add environment validation.
+- Add testing configuration.
+
+Exit:
+- App runs.
+- Routes exist.
+- No TypeScript errors.
+
+### Milestone 2 — Complete demo product
+
+- Seed deterministic reports.
+- Implement demo repository.
+- Implement dashboard.
+- Implement schematic community map.
+- Implement reporting flow.
+- Implement GPS/manual location.
+- Implement demo classification.
+- Implement report details and timeline.
+- Implement My reports.
+- Implement local persistence/reset.
+
+Exit:
+- Full report lifecycle works without external services.
+
+### Milestone 3 — Production data and auth
+
+- Write Supabase migrations.
+- Implement RLS.
+- Implement auth.
+- Implement private/public DTO separation.
+- Implement spatial query functions.
+- Implement production repository.
+
+Exit:
+- Local Supabase integration and authorization tests pass.
+
+### Milestone 4 — Evidence and AI
+
+- Implement private upload intents.
+- Implement finalization.
+- Implement trusted sanitization.
+- Implement durable job processing.
+- Implement provider adapter.
+- Implement structured classification.
+- Implement failure and retry states.
+
+Exit:
+- Evidence processing works.
+- AI is optional for report submission.
+- No credentials leak.
+
+### Milestone 5 — Realtime and operations
+
+- Implement public-safe realtime.
+- Implement owner tracking subscriptions.
+- Implement reconnect behavior.
+- Implement staff queue.
+- Implement transactional status transitions.
+- Implement assignment and duplicate handling.
+
+Exit:
+- Two authorized sessions observe correct state updates.
+- Anonymous sessions receive only public-safe information.
+
+### Milestone 6 — Hardening and delivery
+
+- Run accessibility checks.
+- Run responsive screenshot review.
+- Run unit, integration, and E2E tests.
+- Verify build.
+- Document infrastructure and limitations.
+- Produce final implementation summary.
+
+## 25. Final acceptance criteria
+
+The implementation is acceptable only if:
+
+- The dashboard looks like a polished modern product.
+- The app is usable on mobile and desktop.
+- Every main navigation item works.
+- Uploading creates a visible evidence preview.
+- Classification has truthful loading/result/error states.
+- Demo AI is clearly marked.
+- GPS requests permission instead of pretending to know the location.
+- Manual location works.
+- Confirmed pins are not overwritten by later GPS readings.
+- The community map has working filters and selectable reports.
+- A list alternative exists.
+- New reports appear in the correct views.
+- A report timeline shows actual stored events.
+- Operational updates require staff authorization.
+- Production public responses exclude private location and evidence.
+- Database authorization is tested.
+- Background jobs survive request termination.
+- Duplicate submission does not create duplicate reports.
+- Demo mode runs without external credentials.
+- Production mode never silently returns demo records.
+- No major interactive control is decorative-only.
+- Required verification commands have been run or explicitly reported blocked.
+- README explains setup, modes, tests, deployment, and limitations.
+
+## 26. Out of scope for the initial release
+
+Do not silently expand scope into:
+- Emergency dispatch.
+- Automatic government integration.
+- Autonomous repair scheduling.
+- Engineering-certified severity scoring.
+- Full-video understanding.
+- Global geospatial analytics.
+- Native mobile applications.
+- Automatic publication of unredacted resident media.
+
+Provide extension points where useful, but finish the core product first.
+```
+
+---
+
+# 4. Paste this prompt into your IDE agent
+
+After adding `AGENTS.md` and `SKILL.md`, paste the following:
+
+```text
+Build RoadSignal in this repository.
+
+First read:
+1. AGENTS.md
+2. SKILL.md
+3. package.json
+4. The current source tree
+5. docs/IMPLEMENTATION_STATUS.md
+
+Do not stop at planning. Implement the application.
+
+Primary objective:
+Deliver a polished, responsive road-damage reporting product with a
+fully functional no-credentials demo mode and a securely designed
+Supabase production integration.
+
+Start by inspecting the existing scaffold and identifying incompatible
+dependencies or missing configuration.
+
+Then work through the milestones in SKILL.md.
+
+Important execution rules:
+- Preserve unrelated existing work.
+- Do not ask me to choose colors or basic layout details; the specification
+  already provides that direction.
+- Make reasonable reversible implementation decisions.
+- Ask before paid services, deployment, destructive changes, or remote
+  infrastructure modifications.
+- Keep the implementation status document current.
+- Do not create placeholder files just to make the directory tree look complete.
+- Do not produce a static mockup and call it finished.
+- Do not fake real AI, real GPS, real team updates, or live synchronization.
+- Keep demo and production behavior explicitly separated.
+- Implement actual handlers for every visible control.
+- Use accessible UI patterns and meaningful error states.
+- Keep public map data separate from private report data.
+- Never expose service-role or AI-provider secrets.
+- Prefer current official package APIs over remembered outdated examples.
+
+Visual priority:
+The first completed screen should already look premium:
+- Soft off-white background.
+- Deep navy text.
+- Teal accents.
+- Open layout.
+- Large map.
+- Clean evidence upload card.
+- AI classification pills.
+- Precise location panel.
+- Clear report timeline.
+- Restrained glass effects and shadows.
+- Strong mobile layout.
+
+Build the complete demo experience before depending on external credentials.
+
+Once each milestone works:
+1. Run its relevant tests.
+2. Fix discovered issues.
+3. Update implementation status.
+4. Continue to the next milestone.
+
+Before final delivery run:
+- npm run lint
+- npm run typecheck
+- npm run test
+- npm run build
+- npm run test:e2e
+
+Run local Supabase integration and authorization tests if the environment
+supports them.
+
+Use browser automation to inspect the application at desktop, tablet,
+and mobile sizes. Review actual screenshots, not only source code.
+
+If a service or tool is unavailable:
+- Continue with everything that can be implemented safely.
+- Document the exact missing prerequisite.
+- Clearly distinguish implemented, tested, untested, and blocked work.
+
+Final response:
+- Summarize implemented features.
+- List files or architectural areas of importance.
+- Report the exact verification results.
+- Explain how to run demo mode.
+- Explain how to configure production mode.
+- List any remaining limitations honestly.
+
+Begin by inspecting the repository, then implement Milestone 1 and continue.
+```
+
+---
+
+## Recommended first-run workflow
+
+```bash
+# 1. Create the scaffold.
+bash initialize-roadsignal.sh
+
+# 2. Enter the project.
+cd roadsignal
+
+# 3. Add AGENTS.md and SKILL.md, then run the IDE-agent prompt.
+
+# 
