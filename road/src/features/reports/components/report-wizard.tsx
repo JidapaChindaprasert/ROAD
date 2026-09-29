@@ -102,48 +102,41 @@ export function ReportWizard() {
     }
   }, [presetLocationInfo, setManualLocation]);
 
-  // Run AI analysis whenever new primary media is uploaded
+  // Run AI analysis whenever a damage photo is uploaded (single photo mode)
   const handleAddFiles = async (files: File[]) => {
-    const uploadedMedia: MediaItem[] = [];
+    const f = files[0];
+    if (!f) return;
 
-    for (const f of files) {
-      let item: MediaItem | null = null;
-      if (repository.uploadMedia) {
-        try {
-          item = await repository.uploadMedia(f);
-        } catch (uploadErr) {
-          console.warn("Remote storage upload failed, falling back to data URL:", uploadErr);
-        }
+    let item: MediaItem | null = null;
+    if (repository.uploadMedia) {
+      try {
+        item = await repository.uploadMedia(f);
+      } catch (uploadErr) {
+        console.warn("Remote storage upload failed, falling back to data URL:", uploadErr);
       }
-
-      if (!item) {
-        const dataUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = () => resolve(URL.createObjectURL(f));
-          reader.readAsDataURL(f);
-        });
-        item = {
-          id: generateMediaId(),
-          url: dataUrl,
-          thumbnailUrl: dataUrl,
-          mimeType: f.type || "image/jpeg",
-          fileName: f.name,
-          byteSize: f.size,
-          isSanitized: true,
-          createdAt: new Date().toISOString(),
-        };
-      }
-      uploadedMedia.push(item);
     }
 
-    const newMediaList = [...mediaFiles, ...uploadedMedia];
-    setMediaFiles(newMediaList);
-
-    // Trigger AI analysis on primary image
-    if (newMediaList.length > 0 && !aiAnalysis) {
-      triggerAiAnalysis(newMediaList[0].fileName, newMediaList[0]);
+    if (!item) {
+      const dataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(URL.createObjectURL(f));
+        reader.readAsDataURL(f);
+      });
+      item = {
+        id: generateMediaId(),
+        url: dataUrl,
+        thumbnailUrl: dataUrl,
+        mimeType: f.type || "image/jpeg",
+        fileName: f.name,
+        byteSize: f.size,
+        isSanitized: true,
+        createdAt: new Date().toISOString(),
+      };
     }
+
+    setMediaFiles([item]);
+    triggerAiAnalysis(item.fileName, item);
   };
 
   const triggerAiAnalysis = async (fileName: string, mediaItem?: MediaItem) => {
@@ -323,6 +316,7 @@ export function ReportWizard() {
               files={mediaFiles}
               onAddFiles={handleAddFiles}
               onRemoveFile={handleRemoveFile}
+              maxFiles={1}
             />
 
             {/* AI Analysis Preview */}

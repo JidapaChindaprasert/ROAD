@@ -33,6 +33,21 @@ export function EvidenceUploader({
 
     const validFiles: File[] = [];
     const maxSizeBytes = maxFileSizeMb * 1024 * 1024;
+    const validTypes = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm"];
+
+    if (maxFiles === 1) {
+      const file = fileList[0];
+      if (!validTypes.includes(file.type)) {
+        setUploadError(`Unsupported file format: ${file.name}. Please upload JPG, PNG, WebP or MP4.`);
+        return;
+      }
+      if (file.size > maxSizeBytes) {
+        setUploadError(`File ${file.name} exceeds ${maxFileSizeMb}MB limit.`);
+        return;
+      }
+      onAddFiles([file]);
+      return;
+    }
 
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
@@ -44,7 +59,6 @@ export function EvidenceUploader({
       }
 
       // Check format
-      const validTypes = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm"];
       if (!validTypes.includes(file.type)) {
         setUploadError(`Unsupported file format: ${file.name}. Please upload JPG, PNG, WebP or MP4.`);
         continue;
@@ -195,7 +209,7 @@ export function EvidenceUploader({
         <input
           ref={fileInputRef}
           type="file"
-          multiple
+          multiple={maxFiles > 1}
           accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
           className="hidden"
           aria-label="Upload evidence photos and videos"
@@ -217,10 +231,14 @@ export function EvidenceUploader({
         </div>
 
         <h3 className="text-base font-bold text-text-primary">
-          ลากไฟล์รูปภาพ หรือกดแปะรูป (Ctrl+V) ที่นี่
+          {maxFiles === 1
+            ? "ถ่ายภาพ หรือเลือกรูปภาพความเสียหาย (1 ภาพ)"
+            : "ลากไฟล์รูปภาพ หรือกดแปะรูป (Ctrl+V) ที่นี่"}
         </h3>
         <p className="text-xs text-text-secondary mt-1 max-w-sm">
-          รองรับ JPEG, PNG, WebP หรือวิดีโอ MP4 สูงสุด 10MB (แนบได้สูงสุด {maxFiles} ไฟล์)
+          {maxFiles === 1
+            ? "รองรับไฟล์ภาพถ่าย JPEG, PNG, WebP สูงสุด 10MB (ใส่ได้ 1 ภาพ)"
+            : `รองรับ JPEG, PNG, WebP หรือวิดีโอ MP4 สูงสุด 10MB (แนบได้สูงสุด ${maxFiles} ไฟล์)`}
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-2 mt-4" onClick={(e) => e.stopPropagation()}>

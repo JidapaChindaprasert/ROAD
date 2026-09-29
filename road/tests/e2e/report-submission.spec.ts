@@ -14,7 +14,7 @@ test.describe("Citizen Damage Report Submission Flow", () => {
     await demoPhotoBtn.click();
 
     // Verify attached evidence and AI analysis preview
-    await expect(page.getByText(/Attached Evidence \(1\/5\)/i)).toBeVisible();
+    await expect(page.getByText(/Attached Evidence \(1\/[15]\)/i)).toBeVisible();
     await expect(page.getByText(/(Roboflow Demo Detection|AI Classification)/i)).toBeVisible({ timeout: 10000 });
 
     // Proceed to Step 2: Location
@@ -25,6 +25,9 @@ test.describe("Citizen Damage Report Submission Flow", () => {
     // Verify Step 2: Location & AI Review
     await expect(page.getByText("Step 2 of 2")).toBeVisible();
     await expect(page.getByText("Confirm Incident Location")).toBeVisible();
+
+    // Verify mini-map search bar is available
+    await expect(page.getByPlaceholder(/ค้นหาชื่อถนน, ซอย, สถานที่ หรือพิกัด/i)).toBeVisible();
 
     // Fill optional landmark and description
     await page.getByPlaceholder("e.g. In front of BTS station exit 2").fill("Near Siam Paragon North Entrance");

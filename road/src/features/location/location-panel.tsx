@@ -122,7 +122,7 @@ export function LocationPanel({
         accuracyMeters={location.accuracyMeters}
         isManual={isManualOverride || location.source === "manual"}
         onSelectCoordinates={onSelectCoordinates}
-        className="h-44 sm:h-48"
+        className="h-64 sm:h-72"
       />
 
       {/* Coordinates summary & manual input toggle */}

@@ -3,7 +3,7 @@
 import * as React from "react";
 import type * as LeafletType from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Plus, Minus, LocateFixed, Loader2, MapPin } from "lucide-react";
+import { Plus, Minus, LocateFixed, Loader2, MapPin, Search, X } from "lucide-react";
 
 export interface LocationMiniMapProps {
   latitude: number;
@@ -12,6 +12,14 @@ export interface LocationMiniMapProps {
   isManual?: boolean;
   onSelectCoordinates?: (lat: number, lng: number, label?: string) => void;
   className?: string;
+}
+
+export interface MiniMapSearchResult {
+  place_id: number;
+  lat: string;
+  lon: string;
+  display_name: string;
+  name?: string;
 }
 
 export function LocationMiniMap({
@@ -29,6 +37,24 @@ export function LocationMiniMap({
 
   const [isMapReady, setIsMapReady] = React.useState(false);
   const [isReverseGeocoding, setIsReverseGeocoding] = React.useState(false);
+
+  // Search state for location lookup in maps
+  const [searchQuery, setSearchQuery] = React.useState("");
+  const [isSearching, setIsSearching] = React.useState(false);
+  const [searchResults, setSearchResults] = React.useState<MiniMapSearchResult[]>([]);
+  const [showResults, setShowResults] = React.useState(false);
+  const searchContainerRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Dismiss search dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowResults(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Keep callback in ref to avoid stale closures in Leaflet events
   const onSelectRef = React.useRef(onSelectCoordinates);
@@ -75,6 +101,71 @@ export function LocationMiniMap({
   React.useEffect(() => {
     reverseGeocodeRef.current = reverseGeocode;
   }, [reverseGeocode]);
+
+  // Location search handler (Supports place names in Thailand & Coordinates)
+  const handleSearch = async (queryText?: string) => {
+    const q = (queryText !== undefined ? queryText : searchQuery).trim();
+    if (!q) return;
+
+    // Direct coordinates detection (e.g. 13.7466, 100.5348)
+    const coordMatch = q.match(/^([-+]?\d{1,2}(?:\.\d+)?)[,\s]+([-+]?\d{1,3}(?:\.\d+)?)$/);
+    if (coordMatch) {
+      const lat = Number(parseFloat(coordMatch[1]).toFixed(6));
+      const lng = Number(parseFloat(coordMatch[2]).toFixed(6));
+      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        if (markerRef.current && mapRef.current) {
+          markerRef.current.setLatLng([lat, lng]);
+          mapRef.current.flyTo([lat, lng], 17);
+        }
+        setShowResults(false);
+        const label = await reverseGeocodeRef.current(lat, lng);
+        if (onSelectRef.current) {
+          onSelectRef.current(lat, lng, label);
+        }
+        return;
+      }
+    }
+
+    setIsSearching(true);
+    setShowResults(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&countrycodes=th&addressdetails=1`,
+        {
+          headers: {
+            "Accept-Language": "th,en",
+            "User-Agent": "ROAD-Damage-Reporter/1.0",
+          },
+        }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setSearchResults(data);
+      }
+    } catch (err) {
+      console.warn("Geocoding failed:", err);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSelectSearchResult = async (item: MiniMapSearchResult) => {
+    const lat = Number(parseFloat(item.lat).toFixed(6));
+    const lng = Number(parseFloat(item.lon).toFixed(6));
+    const title = item.name || item.display_name.split(",")[0];
+    setSearchQuery(title);
+    setShowResults(false);
+
+    if (markerRef.current && mapRef.current) {
+      markerRef.current.setLatLng([lat, lng]);
+      mapRef.current.flyTo([lat, lng], 17);
+    }
+
+    const label = await reverseGeocodeRef.current(lat, lng);
+    if (onSelectRef.current) {
+      onSelectRef.current(lat, lng, label || title);
+    }
+  };
 
   // Initialize Leaflet Mini Map (Client-side dynamic import, runs once)
   React.useEffect(() => {
@@ -165,6 +256,7 @@ export function LocationMiniMap({
 
         // Handle Map Click to place pin
         map.on("click", async (e: LeafletType.LeafletMouseEvent) => {
+          setShowResults(false);
           const newLat = Number(e.latlng.lat.toFixed(6));
           const newLng = Number(e.latlng.lng.toFixed(6));
           marker.setLatLng([newLat, newLng]);
@@ -240,6 +332,93 @@ export function LocationMiniMap({
           </div>
         </div>
       )}
+
+      {/* Floating Search Bar Overlay */}
+      <div ref={searchContainerRef} className="absolute top-2 left-2 right-12 z-30">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSearch();
+          }}
+          className="relative flex items-center"
+        >
+          <div className="relative w-full flex items-center">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (!e.target.value.trim()) {
+                  setShowResults(false);
+                }
+              }}
+              onFocus={() => {
+                if (searchResults.length > 0) setShowResults(true);
+              }}
+              placeholder="ค้นหาชื่อถนน, ซอย, สถานที่ หรือพิกัด..."
+              className="w-full h-8 pl-8 pr-7 text-xs rounded-xl bg-surface/95 backdrop-blur-md border border-border/90 shadow-sm text-text-primary placeholder:text-text-muted focus:outline-hidden focus:ring-2 focus:ring-brand/40 focus:border-brand"
+            />
+            <Search className="absolute left-2.5 w-3.5 h-3.5 text-text-muted pointer-events-none" />
+            {isSearching ? (
+              <Loader2 className="absolute right-2.5 w-3.5 h-3.5 text-brand animate-spin" />
+            ) : searchQuery ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setShowResults(false);
+                }}
+                className="absolute right-2 p-0.5 rounded-full hover:bg-surface-muted text-text-muted cursor-pointer"
+                title="ล้างข้อความค้นหา"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            ) : null}
+          </div>
+        </form>
+
+        {/* Search Results Dropdown */}
+        {showResults && (
+          <div className="mt-1 max-h-48 overflow-y-auto rounded-xl bg-surface/98 backdrop-blur-md border border-border shadow-lg py-1 text-xs">
+            {isSearching ? (
+              <div className="p-3 text-center text-text-muted flex items-center justify-center gap-1.5 text-[11px]">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-brand" />
+                <span>กำลังค้นหาสถานที่ในประเทศไทย...</span>
+              </div>
+            ) : searchResults.length > 0 ? (
+              searchResults.map((res) => {
+                const title = res.name || res.display_name.split(",")[0];
+                const subtitle = res.display_name.split(",").slice(1, 4).join(",").trim();
+
+                return (
+                  <button
+                    key={res.place_id}
+                    type="button"
+                    onClick={() => handleSelectSearchResult(res)}
+                    className="w-full text-left px-3 py-2 hover:bg-brand-soft/60 flex items-start gap-2 border-b border-border/40 last:border-b-0 cursor-pointer transition-colors"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-brand shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <span className="font-semibold text-text-primary block truncate">
+                        {title}
+                      </span>
+                      {subtitle && (
+                        <span className="text-[10px] text-text-muted block truncate mt-0.25">
+                          {subtitle}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            ) : (
+              <div className="p-2.5 text-center text-[11px] text-text-muted">
+                ไม่พบสถานที่ ลองระบุชื่อถนน แขวง หรือพิกัด Lat, Lng
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Floating Mini Controls */}
       <div className="absolute top-2 right-2 z-20 flex flex-col gap-1">
