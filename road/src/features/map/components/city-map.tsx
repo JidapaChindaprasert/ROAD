@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import * as maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
+import type * as LeafletType from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { ReportSummary } from "@/features/reports/types";
 import {
   Search,
@@ -23,7 +23,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 export interface CityMapProps {
-  reports: ReportSummary[];
+  reports?: ReportSummary[];
   selectedReportId?: string | null;
   onSelectReport?: (report: ReportSummary) => void;
   onSelectLocation?: (coords: { lat: number; lng: number; label?: string }) => void;
@@ -47,7 +47,7 @@ interface SelectedTarget {
   label: string;
 }
 
-// Default center: Bangkok central
+// Default center: Bangkok central [lng, lat]
 const DEFAULT_BANGKOK_CENTER: [number, number] = [100.5018, 13.7563];
 const DEFAULT_ZOOM = 12;
 
@@ -63,26 +63,27 @@ export function CityMap({
 }: CityMapProps) {
   const router = useRouter();
   const mapContainerRef = React.useRef<HTMLDivElement | null>(null);
-  const mapRef = React.useRef<maplibregl.Map | null>(null);
-  const reportMarkersRef = React.useRef<maplibregl.Marker[]>([]);
-  const targetMarkerRef = React.useRef<maplibregl.Marker | null>(null);
+  const mapRef = React.useRef<LeafletType.Map | null>(null);
+  const leafletModuleRef = React.useRef<typeof LeafletType | null>(null);
+  const reportMarkersRef = React.useRef<LeafletType.Marker[]>([]);
+  const targetMarkerRef = React.useRef<LeafletType.Marker | null>(null);
 
-  // Map state
+  // Map readiness state
   const [isMapLoaded, setIsMapLoaded] = React.useState(false);
   const [mapError, setMapError] = React.useState<string | null>(null);
 
-  // Search state (Feature 1 & Feature 3)
+  // Search state (Feature 1: Area Search & Feature 3: Coordinate Search)
   const [searchQuery, setSearchQuery] = React.useState("");
   const [isSearching, setIsSearching] = React.useState(false);
   const [searchResults, setSearchResults] = React.useState<GeocodingResult[]>([]);
   const [showSearchResults, setShowSearchResults] = React.useState(false);
 
-  // Selected Target state (Feature 2)
+  // Selected Target state (Feature 2: Location selection & Click-to-Report)
   const [selectedTarget, setSelectedTarget] = React.useState<SelectedTarget | null>(null);
   const [isReverseGeocoding, setIsReverseGeocoding] = React.useState(false);
   const [copiedCoords, setCopiedCoords] = React.useState(false);
 
-  // Coordinate Search Modal state (Feature 3)
+  // Coordinate Search Modal state (Feature 3: GPS Presets & Custom Coordinates)
   const [showCoordDialog, setShowCoordDialog] = React.useState(false);
   const [customLat, setCustomLat] = React.useState("13.7563");
   const [customLng, setCustomLng] = React.useState("100.5018");
@@ -97,29 +98,36 @@ export function CityMap({
       });
 
       // Update or create target marker on map
-      if (mapRef.current) {
+      const L = leafletModuleRef.current;
+      const map = mapRef.current;
+      if (L && map) {
         if (!targetMarkerRef.current) {
-          const el = document.createElement("div");
-          el.className = "road-target-marker";
-          el.innerHTML = `
-            <div class="relative flex items-center justify-center">
-              <span class="absolute w-8 h-8 rounded-full bg-red-500/30 animate-ping"></span>
-              <div class="w-7 h-7 rounded-full bg-red-600 border-2 border-white shadow-xl flex items-center justify-center text-white">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="22" y1="12" x2="18" y2="12"></line>
-                  <line x1="6" y1="12" x2="2" y2="12"></line>
-                  <line x1="12" y1="6" x2="12" y2="2"></line>
-                  <line x1="12" y1="22" x2="12" y2="18"></line>
-                </svg>
+          const targetIcon = L.divIcon({
+            className: "road-leaflet-div-icon",
+            html: `
+              <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2">
+                <span class="absolute w-8 h-8 rounded-full bg-red-500/35 animate-ping"></span>
+                <div class="w-7 h-7 rounded-full bg-red-600 border-2 border-white shadow-xl flex items-center justify-center text-white">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="22" y1="12" x2="18" y2="12"></line>
+                    <line x1="6" y1="12" x2="2" y2="12"></line>
+                    <line x1="12" y1="6" x2="12" y2="2"></line>
+                    <line x1="12" y1="22" x2="12" y2="18"></line>
+                  </svg>
+                </div>
               </div>
-            </div>
-          `;
-          targetMarkerRef.current = new maplibregl.Marker({ element: el, anchor: "center" })
-            .setLngLat([lng, lat])
-            .addTo(mapRef.current);
+            `,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+          });
+
+          targetMarkerRef.current = L.marker([lat, lng], {
+            icon: targetIcon,
+            zIndexOffset: 1000,
+          }).addTo(map);
         } else {
-          targetMarkerRef.current.setLngLat([lng, lat]);
+          targetMarkerRef.current.setLatLng([lat, lng]);
         }
       }
 
@@ -184,122 +192,100 @@ export function CityMap({
     }
   };
 
-// Fallback standard raster tile style in case vector tiles / CDN / Adblocker stall
-const OSM_RASTER_STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    "osm-tiles": {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors",
-    },
-  },
-  layers: [
-    {
-      id: "osm-layer",
-      type: "raster",
-      source: "osm-tiles",
-      minzoom: 0,
-      maxzoom: 19,
-    },
-  ],
-};
-
-  // Initialize Map
+  // Initialize Leaflet Map (Safe dynamic import for Next.js SSR)
   React.useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
     let isDisposed = false;
-    let hasLoaded = false;
-    let timeoutId: NodeJS.Timeout | null = null;
+    let mapInstance: LeafletType.Map | null = null;
 
-    try {
-      const map = new maplibregl.Map({
-        container: mapContainerRef.current,
-        style: "https://tiles.openfreemap.org/styles/liberty",
-        center: initialCenter,
-        zoom: initialZoom,
-        minZoom: 3,
-        maxZoom: 19,
-        attributionControl: false,
-      });
+    async function initializeLeaflet() {
+      try {
+        // Dynamically load leaflet on client side only
+        const leafletModule = await import("leaflet");
+        const L = (leafletModule.default || leafletModule) as typeof LeafletType;
+        leafletModuleRef.current = L;
 
-      // Add compact attribution
-      map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+        if (isDisposed || !mapContainerRef.current) return;
 
-      const markLoaded = () => {
-        if (isDisposed || hasLoaded) return;
-        hasLoaded = true;
-        setIsMapLoaded(true);
-        if (timeoutId) clearTimeout(timeoutId);
-        try {
-          map.resize();
-        } catch {
-          // ignore
-        }
-      };
+        // Leaflet takes [latitude, longitude]
+        const centerLat = initialCenter[1];
+        const centerLng = initialCenter[0];
 
-      // Listen to multiple events so the map never hangs
-      map.once("load", markLoaded);
-      map.once("style.load", markLoaded);
-      map.once("styledata", markLoaded);
-      map.once("render", () => {
-        markLoaded();
-      });
+        const map = L.map(mapContainerRef.current, {
+          center: [centerLat, centerLng],
+          zoom: initialZoom,
+          minZoom: 3,
+          maxZoom: 19,
+          zoomControl: false,
+          attributionControl: false,
+        });
+        mapInstance = map;
+        mapRef.current = map;
 
-      // Error handler with automatic fallback to OSM raster tiles
-      map.on("error", (e) => {
-        console.warn("MapLibre notice:", e);
-        if (!hasLoaded && !isDisposed) {
-          try {
-            map.setStyle(OSM_RASTER_STYLE);
-          } catch {
-            // ignore
+        // CARTO Voyager raster tiles with User API Key
+        const cartoApiKey =
+          process.env.NEXT_PUBLIC_CARTO_API_KEY || "cb1_43kf_1_52bd28b4e3ec99b3a194e59f";
+        const cartoUrl = `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${cartoApiKey}`;
+
+        const cartoLayer = L.tileLayer(cartoUrl, {
+          subdomains: ["a", "b", "c", "d"],
+          maxZoom: 20,
+          detectRetina: true,
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OSM</a> &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>',
+        });
+
+        // Fallback to OSM if CARTO has tile errors
+        let hasSwitchedToOsm = false;
+        cartoLayer.on("tileerror", () => {
+          if (!hasSwitchedToOsm && !isDisposed && mapRef.current) {
+            hasSwitchedToOsm = true;
+            console.warn("Tile notice: switching to OpenStreetMap fallback");
+            const osmFallback = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+              subdomains: ["a", "b", "c"],
+              maxZoom: 19,
+              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            });
+            osmFallback.addTo(mapRef.current);
           }
-          markLoaded();
-        }
-      });
+        });
 
-      // Safety timeout: if after 2500ms it hasn't fired 'load', dismiss loader and try fallback
-      timeoutId = setTimeout(() => {
-        if (!hasLoaded && !isDisposed) {
-          console.warn("OpenFreeMap vector tiles timeout, switching to reliable OpenStreetMap tiles");
-          try {
-            map.setStyle(OSM_RASTER_STYLE);
-          } catch {
-            // ignore
+        cartoLayer.addTo(map);
+
+        // Compact attribution control
+        L.control
+          .attribution({ prefix: false, position: "bottomright" })
+          .addAttribution('&copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>')
+          .addTo(map);
+
+        // Map Click Listener (Feature 2: Click to select location)
+        map.on("click", (e: LeafletType.LeafletMouseEvent) => {
+          const lat = Number(e.latlng.lat.toFixed(6));
+          const lng = Number(e.latlng.lng.toFixed(6));
+          locationSelectRef.current(lat, lng);
+        });
+
+        // Trigger map invalidateSize to prevent tile rendering gaps
+        setTimeout(() => {
+          if (!isDisposed && mapRef.current) {
+            mapRef.current.invalidateSize();
+            setIsMapLoaded(true);
           }
-          markLoaded();
-        }
-      }, 2500);
-
-      // Click to select location (Feature 2)
-      map.on("click", (e) => {
-        const originalEvent = e.originalEvent as MouseEvent;
-        const targetElement = originalEvent.target as HTMLElement;
-        if (targetElement.closest(".road-report-marker")) {
-          return; // Ignore clicks on report markers
-        }
-
-        const lat = Number(e.lngLat.lat.toFixed(6));
-        const lng = Number(e.lngLat.lng.toFixed(6));
-        locationSelectRef.current(lat, lng);
-      });
-
-      mapRef.current = map;
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to load map canvas";
-      queueMicrotask(() => {
+        }, 80);
+      } catch (err: unknown) {
+        console.error("Leaflet initialization failed:", err);
+        const msg = err instanceof Error ? err.message : "Failed to load map";
         setMapError(msg);
-      });
+      }
     }
+
+    initializeLeaflet();
 
     return () => {
       isDisposed = true;
-      if (timeoutId) clearTimeout(timeoutId);
-      if (mapRef.current) {
-        mapRef.current.remove();
+      if (mapInstance) {
+        mapInstance.remove();
         mapRef.current = null;
       }
     };
@@ -307,13 +293,15 @@ const OSM_RASTER_STYLE: maplibregl.StyleSpecification = {
 
   // Sync Community Reports Markers
   React.useEffect(() => {
-    if (!mapRef.current || !isMapLoaded) return;
+    const L = leafletModuleRef.current;
+    const map = mapRef.current;
+    if (!map || !L || !isMapLoaded) return;
 
-    // Clear old markers
+    // Remove old markers
     reportMarkersRef.current.forEach((marker) => marker.remove());
     reportMarkersRef.current = [];
 
-    // Create markers for reports
+    // Create markers for community reports
     reports.forEach((report) => {
       const lat = report.publicLatitude;
       const lng = report.publicLongitude;
@@ -327,7 +315,7 @@ const OSM_RASTER_STYLE: maplibregl.StyleSpecification = {
       let statusIconSvg = `
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12"></line>
           <line x1="12" y1="16" x2="12.01" y2="16"></line>
         </svg>
       `;
@@ -350,36 +338,35 @@ const OSM_RASTER_STYLE: maplibregl.StyleSpecification = {
         `;
       }
 
-      const el = document.createElement("div");
-      el.className = "road-report-marker cursor-pointer group transition-transform duration-200";
-      el.style.transformOrigin = "bottom center";
-
-      el.innerHTML = `
-        <div class="relative flex items-center justify-center ${isSelected ? "scale-125 z-30" : "hover:scale-115"}">
-          ${isSelected ? `<span class="absolute w-8 h-8 rounded-full ${pingColor} opacity-75 animate-ping"></span>` : ""}
-          <div class="w-7 h-7 rounded-full ${statusBg} text-white border-2 border-white shadow-lg flex items-center justify-center">
-            ${statusIconSvg}
-          </div>
-          <!-- Tooltip on hover -->
-          <div class="absolute bottom-8 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center pointer-events-none z-40 whitespace-nowrap">
-            <div class="bg-gray-900/95 text-white text-[11px] font-medium py-1 px-2.5 rounded-lg shadow-xl backdrop-blur-sm border border-gray-700/50">
-              <span class="font-bold text-amber-300 capitalize">${report.category}</span>: ${report.title.slice(0, 30)}
+      const icon = L.divIcon({
+        className: "road-leaflet-div-icon",
+        html: `
+          <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2 group cursor-pointer">
+            ${isSelected ? `<span class="absolute w-9 h-9 rounded-full ${pingColor} opacity-75 animate-ping"></span>` : ""}
+            <div class="w-7 h-7 rounded-full ${statusBg} text-white border-2 border-white shadow-lg flex items-center justify-center ${isSelected ? "scale-125 ring-2 ring-primary" : "hover:scale-115 transition-transform"}">
+              ${statusIconSvg}
             </div>
-            <div class="w-1.5 h-1.5 bg-gray-900 rotate-45 -mt-0.5"></div>
+            <!-- Tooltip on hover -->
+            <div class="absolute bottom-9 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center pointer-events-none z-50 whitespace-nowrap">
+              <div class="bg-gray-900/95 text-white text-[11px] font-medium py-1 px-2.5 rounded-lg shadow-xl backdrop-blur-sm border border-gray-700/50">
+                <span class="font-bold text-amber-300 capitalize">${report.category}</span>: ${report.title.slice(0, 30)}
+              </div>
+              <div class="w-1.5 h-1.5 bg-gray-900 rotate-45 -mt-0.5"></div>
+            </div>
           </div>
-        </div>
-      `;
+        `,
+        iconSize: [28, 28],
+        iconAnchor: [14, 14],
+      });
 
-      el.addEventListener("click", (e) => {
-        e.stopPropagation();
+      const marker = L.marker([lat, lng], { icon, zIndexOffset: isSelected ? 500 : 100 }).addTo(map);
+
+      marker.on("click", (e) => {
+        L.DomEvent.stopPropagation(e);
         if (onSelectReport) {
           onSelectReport(report);
         }
       });
-
-      const marker = new maplibregl.Marker({ element: el, anchor: "center" })
-        .setLngLat([lng, lat])
-        .addTo(mapRef.current!);
 
       reportMarkersRef.current.push(marker);
     });
@@ -403,13 +390,12 @@ const OSM_RASTER_STYLE: maplibregl.StyleSpecification = {
       }
     }
 
-    // Feature 1: Area Geocoding Search via OpenStreetMap Nominatim
+    // Feature 1: Geocode place name via OpenStreetMap Nominatim
     setIsSearching(true);
+    setShowSearchResults(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          query
-        )}&countrycodes=th&limit=5`,
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=th&addressdetails=1`,
         {
           headers: {
             "Accept-Language": "th,en",
@@ -418,187 +404,167 @@ const OSM_RASTER_STYLE: maplibregl.StyleSpecification = {
         }
       );
 
-      if (response.ok) {
-        let data: GeocodingResult[] = await response.json();
-        // Fallback search without country filter if 0 results
-        if (!data || data.length === 0) {
-          const fallbackRes = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-              query
-            )}&limit=5`,
-            {
-              headers: {
-                "Accept-Language": "th,en",
-                "User-Agent": "ROAD-Damage-Reporter/1.0",
-              },
-            }
-          );
-          if (fallbackRes.ok) {
-            data = await fallbackRes.json();
-          }
-        }
-        setSearchResults(data || []);
-        setShowSearchResults(true);
+      if (res.ok) {
+        const data = await res.json();
+        setSearchResults(data);
         if (data.length === 0) {
-          toast.info("ไม่พบสถานที่ที่ค้นหา ลองระบุชื่อถนนหรือย่านที่ชัดเจนขึ้น");
+          toast.info("ไม่พบสถานที่ที่ตรงกับคำค้นหา ลองระบุชื่อถนนหรือเขตให้ชัดเจนขึ้น");
         }
+      } else {
+        toast.error("การค้นหาขัดข้อง กรุณาลองใหม่อีกครั้ง");
       }
     } catch (err) {
       console.error("Geocoding failed:", err);
-      toast.error("การค้นหาสถานที่ขัดข้อง กรุณาลองใหม่อีกครั้ง");
+      toast.error("ไม่สามารถเชื่อมต่อบริการค้นหาสถานที่ได้");
     } finally {
       setIsSearching(false);
     }
   };
 
-  // Fly to selected coordinate and set target
+  // Fly to target coordinates
   const flyToCoordinates = (lat: number, lng: number, label?: string) => {
     if (!mapRef.current) return;
-    mapRef.current.flyTo({
-      center: [lng, lat],
-      zoom: 16,
-      essential: true,
-      duration: 1500,
-    });
+    mapRef.current.flyTo([lat, lng], 16, { duration: 1.2 });
     handleLocationSelect(lat, lng, label);
   };
 
-  // Handle Geolocation (Locate Me)
-  const handleLocateMe = () => {
-    if (!navigator.geolocation) {
-      toast.error("เบราว์เซอร์ไม่รองรับ GPS");
-      return;
-    }
-
-    toast.info("กำลังดึงพิกัดตำแหน่งปัจจุบันของคุณ...");
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude, longitude } = pos.coords;
-        flyToCoordinates(latitude, longitude, "ตำแหน่งปัจจุบันของคุณ");
-        toast.success("พบตำแหน่งของคุณแล้ว");
-      },
-      (err) => {
-        console.warn("GPS error:", err);
-        toast.error("ไม่สามารถเข้าถึงตำแหน่ง GPS ได้ กรุณาอนุญาตสิทธิ์ในเบราว์เซอร์");
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+  // Select Search Result Item
+  const handleSelectSearchResult = (result: GeocodingResult) => {
+    const lat = parseFloat(result.lat);
+    const lng = parseFloat(result.lon);
+    flyToCoordinates(lat, lng, result.name || result.display_name.split(",")[0]);
+    setShowSearchResults(false);
+    setSearchQuery(result.name || result.display_name.split(",")[0]);
   };
 
-  // Reset View to Default Center
+  // Reset Map View to default center
   const handleResetView = () => {
     if (!mapRef.current) return;
-    mapRef.current.flyTo({
-      center: initialCenter,
-      zoom: initialZoom,
-      duration: 1200,
+    mapRef.current.flyTo([DEFAULT_BANGKOK_CENTER[1], DEFAULT_BANGKOK_CENTER[0]], DEFAULT_ZOOM, {
+      duration: 1.0,
     });
   };
 
-  // Copy coordinates to clipboard
+  // Get Current Geolocation (GPS)
+  const handleLocateMe = () => {
+    if (!navigator.geolocation) {
+      toast.error("เบราว์เซอร์ของคุณไม่รองรับการระบุตำแหน่ง GPS");
+      return;
+    }
+
+    toast.loading("กำลังระบุตำแหน่งของคุณ...", { id: "locate-me" });
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        toast.dismiss("locate-me");
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        flyToCoordinates(lat, lng, "ตำแหน่งปัจจุบันของคุณ");
+        toast.success("ระบุตำแหน่งปัจจุบันสำเร็จ");
+      },
+      (err) => {
+        toast.dismiss("locate-me");
+        console.warn("Geolocation error:", err);
+        toast.error("ไม่สามารถเข้าถึงตำแหน่งของคุณได้ กรุณาอนุญาตสิทธิ์การใช้งาน GPS");
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
+  // Copy Coordinates to clipboard
   const handleCopyCoordinates = () => {
     if (!selectedTarget) return;
-    const text = `${selectedTarget.lat}, ${selectedTarget.lng}`;
+    const text = `${selectedTarget.lat.toFixed(6)}, ${selectedTarget.lng.toFixed(6)}`;
     navigator.clipboard.writeText(text);
     setCopiedCoords(true);
-    toast.success(`คัดลอกพิกัด ${text} แล้ว`);
+    toast.success("คัดลอกพิกัดแล้ว: " + text);
     setTimeout(() => setCopiedCoords(false), 2000);
   };
 
-  // Trigger Report Creation at Selected Spot (Feature 2)
+  // Proceed to Report New Damage (Feature 2)
   const handleProceedToReport = () => {
     if (!selectedTarget) return;
-
     if (onSelectLocation) {
       onSelectLocation({
         lat: selectedTarget.lat,
         lng: selectedTarget.lng,
         label: selectedTarget.label,
       });
-      return;
     }
-
-    // Direct navigation to report creation wizard with prefilled coordinates
-    const url = `/report/new?lat=${selectedTarget.lat}&lng=${selectedTarget.lng}&label=${encodeURIComponent(
-      selectedTarget.label
-    )}`;
-    router.push(url);
+    const params = new URLSearchParams({
+      lat: selectedTarget.lat.toString(),
+      lng: selectedTarget.lng.toString(),
+      label: selectedTarget.label,
+    });
+    router.push(`/report/new?${params.toString()}`);
   };
 
   return (
     <div
-      className={`relative w-full h-[520px] rounded-3xl overflow-hidden border border-border shadow-inner bg-slate-100 ${className}`}
+      className={`relative w-full h-[520px] rounded-3xl overflow-hidden shadow-sm border border-border bg-surface-muted select-none ${className}`}
     >
       {/* Map Canvas Container */}
-      <div ref={mapContainerRef} className="w-full h-full" />
+      <div ref={mapContainerRef} className="w-full h-full z-0" />
 
-      {/* Loading Skeleton Overlay */}
+      {/* Loading Overlay */}
       {!isMapLoaded && !mapError && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-100/90 backdrop-blur-sm">
-          <Loader2 className="w-8 h-8 text-primary animate-spin mb-3" />
-          <p className="text-sm font-semibold text-text-secondary">กำลังโหลดแผนที่ OpenFreeMap...</p>
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-surface/75 backdrop-blur-sm transition-opacity duration-300">
+          <div className="p-3 bg-surface rounded-2xl shadow-xl border border-border flex items-center gap-3">
+            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            <span className="text-xs font-semibold text-text-primary">
+              กำลังเตรียมแผนที่ความเร็วสูง...
+            </span>
+          </div>
         </div>
       )}
 
-      {/* Map Error Banner */}
+      {/* Error Banner */}
       {mapError && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
-          <AlertTriangle className="w-10 h-10 text-amber-500 mb-2" />
-          <h4 className="text-base font-bold text-text-primary">ไม่สามารถโหลดแผนที่ได้</h4>
-          <p className="text-xs text-text-muted mt-1 max-w-sm">{mapError}</p>
+        <div className="absolute top-4 left-4 right-4 z-40 p-4 bg-danger-soft border border-danger/30 rounded-2xl flex items-center gap-3 text-xs text-danger">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span className="flex-1 font-medium">{mapError}</span>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-2.5 py-1 bg-danger text-white rounded-lg font-bold hover:bg-danger/90"
+          >
+            รีเฟรช
+          </button>
         </div>
       )}
 
-      {/* Top Search & Filter Bar (Feature 1 & Feature 3) */}
-      <div className="absolute top-3 inset-x-3 sm:inset-x-auto sm:left-4 sm:w-96 z-20">
-        <div className="relative">
+      {/* Search Header Bar (Feature 1: ค้นหาพื้นที่ & Feature 3: ค้นหาจากพิกัด) */}
+      <div className="absolute top-3 inset-x-3 sm:inset-x-4 z-20 flex flex-col gap-2 max-w-lg">
+        <div className="relative flex items-center gap-1.5">
           <form
             onSubmit={handleExecuteSearch}
-            className="flex items-center gap-1.5 p-1.5 bg-surface/95 backdrop-blur-md rounded-2xl border border-border/80 shadow-lg"
+            className="relative flex-1 flex items-center bg-surface/95 backdrop-blur-md rounded-2xl border border-border/80 shadow-md focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all overflow-hidden"
           >
-            <div className="relative flex-1 flex items-center">
-              <Search className="w-4 h-4 text-text-muted absolute left-3 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="ค้นหาพื้นที่, ถนน, หรือพิกัด..."
-                className="w-full pl-9 pr-7 py-2 text-xs sm:text-sm bg-transparent border-0 focus:outline-none focus:ring-0 text-text-primary placeholder:text-text-muted"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery("");
-                    setSearchResults([]);
-                    setShowSearchResults(false);
-                  }}
-                  className="absolute right-2 p-1 text-text-muted hover:text-text-primary"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+            <div className="pl-3.5 text-text-muted">
+              <Search className="w-4 h-4" />
             </div>
-
-            {/* Quick Coordinate Search Button (Feature 3) */}
-            <button
-              type="button"
-              onClick={() => setShowCoordDialog(!showCoordDialog)}
-              title="ค้นหาด้วยพิกัด GPS"
-              className={`p-2 rounded-xl border transition-colors ${
-                showCoordDialog
-                  ? "bg-primary text-white border-primary"
-                  : "bg-surface-secondary/70 hover:bg-surface-secondary text-text-secondary border-border/60"
-              }`}
-            >
-              <Crosshair className="w-4 h-4" />
-            </button>
-
-            {/* Search Submit Button */}
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ค้นหาชื่อเขต, ถนน หรือ พิกัด (lat, lng)..."
+              className="w-full px-3 py-2.5 text-xs sm:text-sm bg-transparent outline-none text-text-primary placeholder:text-text-muted"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery("");
+                  setShowSearchResults(false);
+                }}
+                className="p-1.5 mr-1 text-text-muted hover:text-text-primary rounded-lg"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
               type="submit"
               disabled={isSearching || !searchQuery.trim()}
-              className="px-3.5 py-2 text-xs font-semibold bg-primary hover:bg-primary-hover text-white rounded-xl shadow-sm transition-colors flex items-center gap-1 disabled:opacity-50"
+              className="px-3.5 py-2.5 bg-primary hover:bg-primary-hover disabled:opacity-50 text-white text-xs font-semibold shrink-0 transition-colors flex items-center gap-1"
             >
               {isSearching ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -608,100 +574,72 @@ const OSM_RASTER_STYLE: maplibregl.StyleSpecification = {
             </button>
           </form>
 
-          {/* Search Results Dropdown (Feature 1) */}
-          {showSearchResults && searchResults.length > 0 && (
-            <div className="absolute top-full mt-2 inset-x-0 bg-surface/95 backdrop-blur-md rounded-2xl border border-border/80 shadow-xl overflow-hidden z-30 max-h-64 overflow-y-auto">
-              <div className="p-2 border-b border-border/60 text-[11px] font-semibold text-text-muted flex justify-between items-center">
-                <span>ผลการค้นหาสถานที่ ({searchResults.length})</span>
-                <button
-                  onClick={() => setShowSearchResults(false)}
-                  className="text-text-muted hover:text-text-primary"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </div>
-              <div className="divide-y divide-border/40">
-                {searchResults.map((item) => (
-                  <button
-                    key={item.place_id}
-                    onClick={() => {
-                      const lat = parseFloat(item.lat);
-                      const lng = parseFloat(item.lon);
-                      flyToCoordinates(lat, lng, item.display_name.split(",")[0]);
-                      setShowSearchResults(false);
-                      setSearchQuery(item.display_name.split(",")[0]);
-                    }}
-                    className="w-full text-left p-3 hover:bg-primary/5 transition-colors flex items-start gap-2.5"
-                  >
-                    <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-text-primary truncate">
-                        {item.display_name.split(",")[0]}
-                      </p>
-                      <p className="text-[11px] text-text-muted truncate mt-0.5">
-                        {item.display_name}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Coordinate Dialog Trigger Button (Feature 3) */}
+          <button
+            type="button"
+            onClick={() => setShowCoordDialog(!showCoordDialog)}
+            title="ค้นหาจากพิกัด GPS หรือเลือกสถานที่ยอดนิยม"
+            className="p-2.5 bg-surface/95 backdrop-blur-md rounded-2xl border border-border/80 shadow-md text-text-secondary hover:text-primary hover:bg-surface transition-colors shrink-0"
+          >
+            <Crosshair className="w-4 h-4" />
+          </button>
 
-          {/* Coordinate Direct Input Popover (Feature 3) */}
+          {/* Preset / GPS Coordinate Dialog Popover */}
           {showCoordDialog && (
-            <div className="absolute top-full mt-2 inset-x-0 bg-surface/95 backdrop-blur-md rounded-2xl border border-border/80 shadow-2xl p-4 z-30 animate-in fade-in zoom-in-95 duration-150">
-              <div className="flex items-center justify-between pb-2 border-b border-border/60 mb-3">
-                <div className="flex items-center gap-1.5">
-                  <Crosshair className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-bold text-text-primary">ค้นหาจากพิกัด (Coordinates)</span>
-                </div>
+            <div className="absolute top-12 right-0 w-80 bg-surface/98 backdrop-blur-lg rounded-2xl border border-border shadow-2xl p-4 z-30 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between pb-2 mb-3 border-b border-border/60">
+                <span className="text-xs font-bold text-text-primary flex items-center gap-1.5">
+                  <Crosshair className="w-3.5 h-3.5 text-primary" />
+                  <span>ค้นหาจากพิกัด (GPS)</span>
+                </span>
                 <button
+                  type="button"
                   onClick={() => setShowCoordDialog(false)}
-                  className="text-text-muted hover:text-text-primary"
+                  className="p-1 text-text-muted hover:text-text-primary rounded-md"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 mb-3">
+              {/* Coordinate Form */}
+              <div className="space-y-2 mb-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-text-secondary mb-1">
-                    Latitude (ละติจูด)
+                  <label className="text-[10px] font-semibold text-text-secondary block mb-1">
+                    ละติจูด (Latitude)
                   </label>
                   <input
                     type="number"
                     step="any"
                     value={customLat}
                     onChange={(e) => setCustomLat(e.target.value)}
-                    placeholder="13.7563"
-                    className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    placeholder="เช่น 13.7563"
+                    className="w-full px-2.5 py-1.5 text-xs bg-surface-secondary rounded-lg border border-border outline-none focus:border-primary text-text-primary font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-text-secondary mb-1">
-                    Longitude (ลองจิจูด)
+                  <label className="text-[10px] font-semibold text-text-secondary block mb-1">
+                    ลองจิจูด (Longitude)
                   </label>
                   <input
                     type="number"
                     step="any"
                     value={customLng}
                     onChange={(e) => setCustomLng(e.target.value)}
-                    placeholder="100.5018"
-                    className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-border bg-surface text-text-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    placeholder="เช่น 100.5018"
+                    className="w-full px-2.5 py-1.5 text-xs bg-surface-secondary rounded-lg border border-border outline-none focus:border-primary text-text-primary font-mono"
                   />
                 </div>
               </div>
 
-              {/* Quick Preset Buttons */}
+              {/* Bangkok Quick Presets */}
               <div className="mb-3">
-                <span className="text-[10px] text-text-muted font-medium block mb-1.5">
+                <span className="text-[10px] font-semibold text-text-muted block mb-1.5">
                   จุดสำคัญยอดนิยม:
                 </span>
-                <div className="flex flex-wrap gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {[
-                    { name: "สยาม", lat: 13.7456, lng: 100.5342 },
-                    { name: "อโศก", lat: 13.7371, lng: 100.5604 },
+                    { name: "สยามสแควร์", lat: 13.7445, lng: 100.5332 },
+                    { name: "แยกอโศก", lat: 13.7372, lng: 100.5604 },
                     { name: "อนุสาวรีย์ชัยฯ", lat: 13.7649, lng: 100.5383 },
                     { name: "สนามหลวง", lat: 13.7553, lng: 100.493 },
                   ].map((preset) => (
@@ -740,6 +678,34 @@ const OSM_RASTER_STYLE: maplibregl.StyleSpecification = {
             </div>
           )}
         </div>
+
+        {/* Suggestion Dropdown List (Feature 1) */}
+        {showSearchResults && searchResults.length > 0 && (
+          <div className="bg-surface/98 backdrop-blur-md rounded-2xl border border-border shadow-xl overflow-hidden divide-y divide-border/60 max-h-60 overflow-y-auto">
+            {searchResults.map((result) => {
+              const nameParts = result.display_name.split(",");
+              const mainTitle = result.name || nameParts[0];
+              const subTitle = nameParts.slice(1, 4).join(", ");
+
+              return (
+                <button
+                  key={result.place_id}
+                  type="button"
+                  onClick={() => handleSelectSearchResult(result)}
+                  className="w-full px-3.5 py-2.5 text-left hover:bg-surface-secondary/80 transition-colors flex items-start gap-2.5"
+                >
+                  <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-text-primary truncate">{mainTitle}</p>
+                    {subTitle && (
+                      <p className="text-[11px] text-text-muted truncate mt-0.5">{subTitle}</p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Floating Map Navigation Controls (Zoom / Geolocation / Reset) */}

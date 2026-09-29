@@ -134,6 +134,15 @@
   - Map Badge: Made demo map badge responsive (`max-w-[calc(100%-110px)]`), eliminating overlap with zoom controls on small phone viewports.
   - Card Status Badges: Fixed right-side status badges and text overflowing cards on mobile by applying `min-w-0 flex-1` and clean truncation.
   - Mode Indicator: Enabled proper `cn()` class merging so demo badge hides cleanly on mobile and stays in desktop view without crowding.
+- **Migration to High-Performance Leaflet Engine**:
+  - Replaced MapLibre GL with lightweight Leaflet 1.9.4 engine (~42KB gzipped vs ~1MB MapLibre bundle + Web Worker).
+  - Eliminated WebGL context initialization delay and Web Worker URL bundling issues in Next.js Turbopack.
+  - Native integration with CARTO Voyager raster tiles with official CARTO API key (`cb1_43kf_1_52bd28b4e3ec99b3a194e59f`), with automatic OpenStreetMap fallback.
+  - Maintained 100% of interactive features:
+    1. Real-time area search (Nominatim with Thai/English auto-complete and auto-flyTo).
+    2. Click-to-report with reverse-geocoded road name and Action Card redirecting to `/report/new`.
+    3. GPS coordinate parser + dialog modal with Bangkok presets (Siam, Asoke, Victory Monument, Sanam Luang).
+    4. Interactive report markers with status badges, tooltips, and full sync with the community directory.
 
 ## Demo Mode
 - Run with `NEXT_PUBLIC_APP_MODE=demo` (default in `.env.local`).

@@ -138,3 +138,15 @@ body {
     margin: 12mm 15mm;
   }
 }
+
+/* Leaflet styling customizations */
+.leaflet-div-icon,
+.road-leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.leaflet-container {
+  font-family: inherit !important;
+  outline: none;
+}
