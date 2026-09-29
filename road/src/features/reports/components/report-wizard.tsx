@@ -19,12 +19,6 @@ import {
   Send,
   ShieldCheck,
   MapPin,
-  CircleDot,
-  Split,
-  Layers,
-  AlertTriangle,
-  Waves,
-  HelpCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -41,65 +35,6 @@ function generateIdempotencyKey(): string {
   const rand = Math.random().toString(36).substring(2, 8);
   return `idemp-${ts}-${rand}`;
 }
-
-// Category options with rich Thai descriptions & icons
-const CATEGORY_OPTIONS: Array<{
-  id: DamageCategory;
-  nameTh: string;
-  nameEn: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  color: string;
-}> = [
-  {
-    id: "pothole",
-    nameTh: "หลุมบ่อ",
-    nameEn: "Pothole",
-    description: "ผิวทางแตกเป็นหลุม ขอบทางชำรุด ลึกเสี่ยงอุบัติเหตุ",
-    icon: CircleDot,
-    color: "text-amber-600 bg-amber-500/10 border-amber-500/20",
-  },
-  {
-    id: "crack",
-    nameTh: "รอยแตกร้าว",
-    nameEn: "Crack",
-    description: "รอยแยกตามยาว/ขวาง ผิวคอนกรีตหรือแอสฟัลต์ปริแตก",
-    icon: Split,
-    color: "text-blue-600 bg-blue-500/10 border-blue-500/20",
-  },
-  {
-    id: "subsidence",
-    nameTh: "ทรุดตัว / คอสะพาน",
-    nameEn: "Subsidence",
-    description: "ผิวถนนยุบตัว คอสะพานต่างระดับ พื้นทางเป็นแอ่ง",
-    icon: AlertTriangle,
-    color: "text-red-600 bg-red-500/10 border-red-500/20",
-  },
-  {
-    id: "surface_wear",
-    nameTh: "ผิวทางสึกหรอ",
-    nameEn: "Surface Wear",
-    description: "ยางมะตอยร่อน ผิวขรุขระ หินลอย ร่องล้อลึก",
-    icon: Layers,
-    color: "text-purple-600 bg-purple-500/10 border-purple-500/20",
-  },
-  {
-    id: "standing_water",
-    nameTh: "น้ำท่วมขัง / ทางระบายน้ำ",
-    nameEn: "Standing Water",
-    description: "น้ำขังบนผิวจราจร ตะแกรงหรือท่อระบายน้ำอุดตัน",
-    icon: Waves,
-    color: "text-cyan-600 bg-cyan-500/10 border-cyan-500/20",
-  },
-  {
-    id: "other",
-    nameTh: "อื่นๆ / สิ่งกีดขวาง",
-    nameEn: "Other Hazard",
-    description: "ฝาท่อชำรุด แผงกั้นเสียหาย เศษวัสดุกีดขวาง",
-    icon: HelpCircle,
-    color: "text-gray-600 bg-gray-500/10 border-gray-500/20",
-  },
-];
 
 export function ReportWizard() {
   const repository = useReportRepository();
@@ -267,7 +202,7 @@ export function ReportWizard() {
       const result = await repository.submitReport({
         draftId: `draft-${Date.now().toString()}`,
         idempotencyKey,
-        category: selectedCategory,
+        category: aiAnalysis?.primaryCategory || selectedCategory || "pothole",
         description: description.trim() || undefined,
         locationContext: locationContext.trim() || undefined,
         location: currentLocation,
@@ -323,9 +258,8 @@ export function ReportWizard() {
               step === 1 ? "text-text-primary" : "text-text-muted"
             }`}
           >
-            1. ภาพถ่าย & ประเภทปัญหา
+            1. ภาพถ่ายความเสียหาย
           </span>
-
           <div className="flex-1 max-w-6 sm:max-w-12 h-0.5 bg-border mx-1 shrink-0" />
 
           <div
@@ -368,7 +302,7 @@ export function ReportWizard() {
         </div>
       )}
 
-      {/* STEP 1: EVIDENCE & CATEGORY */}
+      {/* STEP 1: EVIDENCE PHOTO */}
       {step === 1 && (
         <Card className="shadow-xs">
           <CardHeader>
@@ -400,59 +334,6 @@ export function ReportWizard() {
                 onRetry={() => mediaFiles[0] && triggerAiAnalysis(mediaFiles[0].fileName)}
               />
             )}
-
-            {/* Interactive Category Selector (Citizen Choice) */}
-            <div className="space-y-3 pt-2 border-t border-border-subtle">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs sm:text-sm font-bold text-text-primary">
-                    เลือกประเภทความเสียหาย (Select Category)
-                  </h4>
-                  <p className="text-[11px] text-text-secondary mt-0.5">
-                    เลือกประเภทที่ตรงกับจุดเกิดเหตุ (สามารถเปลี่ยนได้ตามต้องการ)
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {CATEGORY_OPTIONS.map((cat) => {
-                  const Icon = cat.icon;
-                  const isSelected = selectedCategory === cat.id;
-
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setSelectedCategory(cat.id)}
-                      className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 cursor-pointer ${
-                        isSelected
-                          ? "border-brand bg-brand-soft/40 shadow-xs ring-2 ring-brand/30"
-                          : "border-border bg-surface hover:bg-surface-muted hover:border-border/80"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-1.5">
-                        <div className={`p-1.5 rounded-xl border ${cat.color}`}>
-                          <Icon className="w-4 h-4" />
-                        </div>
-                        {isSelected && (
-                          <span className="w-5 h-5 rounded-full bg-brand text-white flex items-center justify-center shrink-0">
-                            <Check className="w-3 h-3 stroke-[3]" />
-                          </span>
-                        )}
-                      </div>
-                      <div>
-                        <span className="text-xs font-bold text-text-primary block leading-tight">
-                          {cat.nameTh}
-                        </span>
-                        <span className="text-[10px] text-text-muted block leading-tight mt-0.5">
-                          {cat.nameEn}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
           </CardContent>
 
           <CardFooter className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-surface-muted/30 p-4 sm:p-6">

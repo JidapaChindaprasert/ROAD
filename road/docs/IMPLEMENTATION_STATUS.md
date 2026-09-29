@@ -155,8 +155,8 @@
     - Added floating GPS locate-me control and zoom controls.
   - **Location Pre-fill & Confirmation Banner**:
     - When redirected from `/map` (`/report/new?lat=...&lng=...&label=...`), automatically pre-populates coordinates and displays an informative banner.
-  - **Interactive Category Selector**:
-    - Added a 6-card interactive grid (หลุมบ่อ, รอยแตกร้าว, ทรุดตัว, ผิวทางสึกหรอ, น้ำท่วมขัง, อื่นๆ) with icons, Thai names, and descriptions, allowing citizen choice or overriding AI classification.
+  - **Simplified Zero-Friction Step 1 (Photo Only)**:
+    - Removed manual damage category cards as requested. Citizens now simply upload/drop the photo; the system automatically detects and sets the damage category via AI analysis without burdening the user with multiple choices.
   - **Public ID & UUID Lookup Compatibility**:
     - Enhanced `getPublicReport` and `/api/operations/reports/[id]/transition` to resolve reports by either UUID or human-readable tracking ID (`REP-...`), eliminating PostgreSQL `22P02 invalid input syntax for type uuid` errors.
 
