@@ -26,6 +26,7 @@ import {
   Send,
   CheckCircle2,
   AlertCircle,
+  Mail,
 } from "lucide-react";
 import { getAllDemoUsers } from "@/features/auth/demo-users";
 import { isDemoMode } from "@/lib/env";
@@ -58,6 +59,7 @@ export default function LoginPage() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [displayName, setDisplayName] = React.useState("");
+  const [isEditingEmail, setIsEditingEmail] = React.useState(false);
   const [isResending, setIsResending] = React.useState(false);
   const [resendCooldown, setResendCooldown] = React.useState(0);
   const [resendStatusMsg, setResendStatusMsg] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -253,7 +255,7 @@ export default function LoginPage() {
                   <ArrowLeft className="h-3.5 w-3.5" />
                   <span>กลับไปหน้าเข้าสู่ระบบ</span>
                 </button>
-                <span className="text-xs font-bold text-brand pr-2">ยืนยันอีเมล</span>
+                <span className="text-xs font-bold text-brand pr-2">ยืนยันรหัส OTP</span>
               </div>
             ) : tab === "forgot_password" ? (
               <div className="flex items-center justify-between p-1.5 rounded-xl bg-surface-muted border border-border-subtle">
@@ -479,22 +481,65 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* TAB 4: EMAIL CONFIRMATION */}
+            {/* TAB 4: OTP EMAIL CONFIRMATION */}
             {tab === "email_confirmation" && (
-              <div className="space-y-4 py-1 text-center">
-                <div className="mx-auto w-12 h-12 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
-                  <MailCheck className="h-6 w-6" />
+              <div className="space-y-4 py-1">
+                <div className="mx-auto w-14 h-14 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand shadow-2xs">
+                  <KeyRound className="h-7 w-7" />
                 </div>
 
-                <div className="space-y-1">
-                  <h3 className="text-base font-bold text-text-primary">
-                    กรุณายืนยันที่อยู่อีเมลของคุณ
+                <div className="space-y-1 text-center">
+                  <h3 className="text-base font-bold text-text-primary tracking-tight">
+                    ยืนยันรหัส OTP (Email Verification)
                   </h3>
                   <p className="text-xs text-text-muted">
-                    ตรวจสอบกล่องข้อความเพื่อเปิดใช้งานบัญชี
+                    กรุณากรอกรหัส OTP 6 หลักที่ได้รับในกล่องข้อความอีเมลของคุณ
                   </p>
                 </div>
 
+                {/* Recipient Email Info & Edit Option */}
+                <div className="p-2.5 px-3.5 rounded-xl bg-surface-muted border border-border flex items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Mail className="h-4 w-4 shrink-0 text-brand" />
+                    <span className="text-text-muted shrink-0">ส่งรหัสไปที่:</span>
+                    <span className="font-semibold text-text-primary truncate" title={email}>
+                      {email || "อีเมลของคุณ"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingEmail((prev) => !prev)}
+                    className="text-[11px] font-semibold text-brand hover:underline shrink-0"
+                  >
+                    {isEditingEmail ? "ปิด" : "แก้ไขอีเมล"}
+                  </button>
+                </div>
+
+                {isEditingEmail && (
+                  <div className="p-3 rounded-xl bg-surface border border-border text-left space-y-2 animate-in fade-in duration-150">
+                    <label className="text-xs font-semibold text-text-primary">แก้ไขที่อยู่อีเมล:</label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="name@example.com"
+                        className="text-xs h-9 bg-surface"
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsEditingEmail(false)}
+                        className="text-xs h-9 shrink-0"
+                      >
+                        บันทึก
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Status alerts */}
                 {resendStatusMsg && (
                   <div
                     className={`p-3 rounded-xl border text-xs text-left flex items-start gap-2 ${
@@ -512,87 +557,81 @@ export default function LoginPage() {
                   </div>
                 )}
 
-                <div className="p-3.5 rounded-xl bg-surface-muted border border-border text-left space-y-2">
-                  <div className="text-xs text-text-secondary">
-                    ส่งลิงก์ยืนยันตัวตนไปยัง:
+                {otpError && (
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-600 dark:text-rose-400 flex items-center gap-2 text-left">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span>{otpError}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@example.com"
-                      className="text-xs h-8 bg-surface"
-                    />
-                  </div>
-                  <p className="text-[11px] text-text-muted leading-relaxed">
-                    กรุณาตรวจสอบกล่องข้อความในอีเมล (รวมถึงโฟลเดอร์ <strong>Junk / Spam</strong>) และคลิกลิงก์ยืนยัน
-                  </p>
-                </div>
+                )}
 
-                {/* Direct OTP / Token Verification */}
-                <form onSubmit={handleVerifyOtp} className="p-3.5 rounded-xl bg-surface border border-border text-left space-y-2.5">
-                  <div>
-                    <label className="text-xs font-semibold text-text-primary block">
-                      หรือกรอกรหัสยืนยัน (Token 6-8 หลัก)
+                {/* OTP Form */}
+                <form onSubmit={handleVerifyOtp} className="space-y-4 pt-1">
+                  <div className="space-y-1.5 text-center">
+                    <label className="text-xs font-bold text-text-primary block">
+                      รหัส OTP 6 หลัก
                     </label>
-                    <span className="text-[11px] text-text-muted">
-                      (กรณีคลิกลิงก์บนมือถือแล้วติดข้อความ localhost ปฏิเสธการเชื่อมต่อ)
-                    </span>
-                  </div>
-
-                  {otpError && (
-                    <div className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
-                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                      <span>{otpError}</span>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
                     <Input
                       type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      autoFocus
+                      maxLength={8}
                       required
-                      placeholder="เช่น 123456"
+                      placeholder="0 0 0 0 0 0"
                       value={otpToken}
-                      onChange={(e) => setOtpToken(e.target.value)}
-                      className="text-xs h-8 font-mono"
+                      onChange={(e) => {
+                        setOtpToken(e.target.value);
+                        if (otpError) setOtpError(null);
+                      }}
+                      className="text-center font-mono text-2xl font-bold tracking-[0.35em] h-13 bg-surface border-2 border-brand/30 focus:border-brand rounded-xl placeholder:text-text-muted/40 placeholder:tracking-[0.35em]"
                     />
-                    <Button
-                      type="submit"
-                      size="sm"
-                      variant="primary"
-                      isLoading={isVerifyingOtp}
-                      className="text-xs h-8 shrink-0 px-3"
-                    >
-                      ยืนยันรหัส
-                    </Button>
+                    <p className="text-[11px] text-text-muted">
+                      ตรวจสอบรหัส OTP ในกล่องข้อความ (รวมถึงโฟลเดอร์ <strong>Junk / Spam</strong>)
+                    </p>
                   </div>
+
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    className="w-full gap-2 justify-center h-10 font-bold shadow-sm"
+                    isLoading={isVerifyingOtp}
+                    disabled={!otpToken.trim()}
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>ยืนยันรหัส OTP และเข้าสู่ระบบ</span>
+                  </Button>
                 </form>
 
-                <div className="space-y-2 pt-1">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full gap-2 justify-center text-xs h-9"
-                    onClick={handleResend}
-                    isLoading={isResending}
-                    disabled={resendCooldown > 0 || !email.trim()}
-                  >
-                    <RefreshCw className={`h-3.5 w-3.5 ${isResending ? "animate-spin" : ""}`} />
-                    <span>
-                      {resendCooldown > 0
-                        ? `ส่งอีกครั้งได้ใน ${resendCooldown} วินาที`
-                        : "ส่งอีเมลยืนยันอีกครั้ง (Resend Email)"}
-                    </span>
-                  </Button>
+                {/* Resend OTP & Navigation */}
+                <div className="pt-2 border-t border-border-subtle space-y-2">
+                  <div className="flex items-center justify-between text-xs text-text-muted px-1">
+                    <span>ไม่ได้รับรหัส OTP?</span>
+                    <button
+                      type="button"
+                      onClick={handleResend}
+                      disabled={resendCooldown > 0 || isResending || !email.trim()}
+                      className="font-semibold text-brand hover:underline disabled:text-text-muted disabled:no-underline inline-flex items-center gap-1.5"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${isResending ? "animate-spin" : ""}`} />
+                      <span>
+                        {resendCooldown > 0
+                          ? `ส่งใหม่อีกครั้งใน ${resendCooldown}s`
+                          : "ขอรหัส OTP ใหม่อีกครั้ง"}
+                      </span>
+                    </button>
+                  </div>
 
                   <Button
                     type="button"
                     variant="ghost"
                     className="w-full text-xs text-text-muted hover:text-text-primary h-8"
-                    onClick={() => setTab("signin")}
+                    onClick={() => {
+                      setTab("signin");
+                      setOtpError(null);
+                    }}
                   >
-                    กลับไปหน้าเข้าสู่ระบบ (Sign In)
+                    <ArrowLeft className="h-3.5 w-3.5 mr-1" />
+                    <span>กลับไปหน้าเข้าสู่ระบบ (Sign In)</span>
                   </Button>
                 </div>
               </div>

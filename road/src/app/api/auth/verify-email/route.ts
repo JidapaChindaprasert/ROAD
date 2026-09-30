@@ -21,12 +21,13 @@ export async function POST(req: NextRequest) {
     }
 
     const { email, token } = parsed.data;
+    const cleanToken = token.trim().replace(/[\s-]/g, "");
 
     // Demo Mode
     if (isDemoMode) {
       return NextResponse.json({
         data: {
-          message: "ยืนยันอีเมลสำเร็จเรียบร้อยแล้ว (Demo Mode)",
+          message: "ยืนยันรหัส OTP สำเร็จเรียบร้อยแล้ว (Demo Mode)",
           user: { id: "demo-user", email, displayName: "Citizen Reporter", role: "reporter" },
         },
       });
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     // 1. Try verifyOtp with type: 'signup'
     let { data, error } = await supabase.auth.verifyOtp({
       email,
-      token,
+      token: cleanToken,
       type: "signup",
     });
 
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     if (error) {
       const fallback = await supabase.auth.verifyOtp({
         email,
-        token,
+        token: cleanToken,
         type: "email",
       });
       if (!fallback.error) {
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
         {
           error: {
             code: "VERIFICATION_FAILED",
-            message: "รหัสยืนยันไม่ถูกต้องหรือหมดอายุแล้ว กรุณาตรวจสอบรหัสในอีเมลของคุณอีกครั้ง",
+            message: "รหัส OTP ไม่ถูกต้องหรือหมดอายุแล้ว กรุณาตรวจสอบรหัสในอีเมลของคุณอีกครั้ง หรือกดขอรหัสใหม่",
           },
         },
         { status: 400 }

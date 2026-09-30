@@ -16,6 +16,9 @@ import {
   LogOut,
   ChevronDown,
   RefreshCw,
+  Mail,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModeIndicator } from "./mode-indicator";
@@ -27,7 +30,15 @@ export function AppHeader() {
   const pathname = usePathname();
   const { user, role, isStaff, isAdmin, isAuthenticated, openAuthModal, signOut } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isCopied, setIsCopied] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
+
+  const handleCopyEmail = (emailText: string) => {
+    if (!emailText) return;
+    navigator.clipboard.writeText(emailText);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
 
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -104,38 +115,45 @@ export function AppHeader() {
               <button
                 type="button"
                 onClick={() => setIsMenuOpen((prev) => !prev)}
-                className="flex items-center gap-1.5 sm:gap-2 p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border border-border bg-surface hover:bg-surface-muted transition-colors text-left"
+                className="flex items-center gap-1.5 sm:gap-2.5 p-1 sm:px-2.5 sm:py-1.5 rounded-xl border border-border bg-surface hover:bg-surface-muted transition-all text-left shadow-2xs group max-w-[200px] xs:max-w-[240px] sm:max-w-xs"
                 aria-expanded={isMenuOpen}
                 aria-label="User account menu"
               >
                 <div
-                  className={`h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0 ${
+                  className={`h-7 w-7 sm:h-8 sm:w-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-2xs ${
                     isAdmin
-                      ? "bg-purple-600"
+                      ? "bg-purple-600 ring-2 ring-purple-400/20"
                       : isStaff
-                      ? "bg-amber-600"
-                      : "bg-brand"
+                      ? "bg-amber-600 ring-2 ring-amber-400/20"
+                      : "bg-brand ring-2 ring-brand/20"
                   }`}
                 >
                   {user.displayName.charAt(0).toUpperCase()}
                 </div>
-                <div className="hidden sm:flex flex-col min-w-0 max-w-[120px]">
-                  <span className="text-xs font-bold text-text-primary truncate leading-tight">
-                    {user.displayName}
+                <div className="flex flex-col min-w-0 max-w-[95px] xs:max-w-[130px] sm:max-w-[160px] md:max-w-[200px] lg:max-w-[240px]">
+                  <span className="text-xs font-bold text-text-primary truncate leading-tight group-hover:text-brand transition-colors">
+                    {user.displayName || user.email}
                   </span>
-                  <span
-                    className={`text-[9px] font-bold uppercase tracking-wider ${
-                      isAdmin
-                        ? "text-purple-600"
-                        : isStaff
-                        ? "text-amber-600"
-                        : "text-brand"
-                    }`}
-                  >
-                    {user.role}
-                  </span>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span
+                      className={`text-[9px] font-bold uppercase tracking-wider ${
+                        isAdmin
+                          ? "text-purple-600"
+                          : isStaff
+                          ? "text-amber-600"
+                          : "text-brand"
+                      }`}
+                    >
+                      {user.role}
+                    </span>
+                    {user.email && (
+                      <span className="text-[10px] text-text-muted truncate hidden sm:inline">
+                        • {user.email}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <ChevronDown className="h-3.5 w-3.5 text-text-muted hidden sm:block" />
+                <ChevronDown className={cn("h-3.5 w-3.5 text-text-muted transition-transform shrink-0 hidden xs:block", isMenuOpen && "rotate-180")} />
               </button>
             ) : (
               <Button
@@ -152,25 +170,62 @@ export function AppHeader() {
 
             {/* Dropdown Menu */}
             {isMenuOpen && user && (
-              <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-surface border border-border shadow-lg p-3 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-2">
-                <div className="p-2 rounded-xl bg-surface-muted/60 border border-border-subtle">
+              <div className="absolute right-0 mt-2 w-[calc(100vw-1.5rem)] sm:w-80 max-w-sm rounded-2xl bg-surface border border-border shadow-xl p-3 z-50 animate-in fade-in zoom-in-95 duration-150 space-y-2.5">
+                <div className="p-3 rounded-xl bg-surface-muted/70 border border-border-subtle space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-text-primary truncate">
-                      {user.displayName}
-                    </span>
-                    <span
-                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
-                        isAdmin
-                          ? "bg-purple-50 text-purple-700 border-purple-200"
-                          : isStaff
-                          ? "bg-amber-50 text-amber-800 border-amber-200"
-                          : "bg-blue-50 text-blue-700 border-blue-200"
-                      }`}
-                    >
-                      {user.role}
-                    </span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className={`h-8 w-8 rounded-lg flex items-center justify-center text-white text-xs font-bold shrink-0 ${
+                          isAdmin
+                            ? "bg-purple-600"
+                            : isStaff
+                            ? "bg-amber-600"
+                            : "bg-brand"
+                        }`}
+                      >
+                        {user.displayName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-text-primary truncate">
+                          {user.displayName}
+                        </p>
+                        <span
+                          className={`inline-block text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${
+                            isAdmin
+                              ? "bg-purple-50 text-purple-700 border-purple-200"
+                              : isStaff
+                              ? "bg-amber-50 text-amber-800 border-amber-200"
+                              : "bg-blue-50 text-blue-700 border-blue-200"
+                          }`}
+                        >
+                          {user.role}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-text-muted truncate mt-0.5">{user.email}</p>
+
+                  {/* Responsive Email Bar with Copy Button */}
+                  <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-border/60 text-xs">
+                    <div className="flex items-center gap-1.5 min-w-0 text-text-muted">
+                      <Mail className="h-3.5 w-3.5 shrink-0 text-brand" />
+                      <span className="text-[11px] truncate select-all" title={user.email}>
+                        {user.email}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyEmail(user.email)}
+                      className="p-1 rounded-md hover:bg-surface text-text-muted hover:text-text-primary transition-colors shrink-0"
+                      title={isCopied ? "คัดลอกแล้ว" : "คัดลอกอีเมล"}
+                      aria-label="Copy email"
+                    >
+                      {isCopied ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-1 text-xs">
