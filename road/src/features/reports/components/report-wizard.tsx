@@ -19,9 +19,12 @@ import {
   Send,
   ShieldCheck,
   MapPin,
+  AlertCircle,
+  LogIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/use-auth";
+import { isDemoMode } from "@/lib/env";
 
 /** Generate a unique media ID */
 function generateMediaId(): string {
@@ -39,7 +42,7 @@ function generateIdempotencyKey(): string {
 
 export function ReportWizard() {
   const repository = useReportRepository();
-  const { user } = useAuth();
+  const { user, isAuthenticated, openAuthModal } = useAuth();
 
   // Wizard Step (1: Evidence & Category, 2: Location & Review, 3: Success)
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
@@ -191,6 +194,12 @@ export function ReportWizard() {
       return;
     }
 
+    if (!isDemoMode && !isAuthenticated) {
+      toast.error("กรุณาเข้าสู่ระบบหรือยืนยันอีเมลก่อนส่งรายงาน เพื่อให้คุณสามารถติดตามสถานะงานซ่อมได้");
+      openAuthModal("signin");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const idempotencyKey = generateIdempotencyKey();
@@ -297,6 +306,43 @@ export function ReportWizard() {
           </span>
         </div>
       )}
+
+      {/* Citizen Authentication Status Notification */}
+      {!isDemoMode && !isAuthenticated ? (
+        <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-800 dark:text-amber-200">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AlertCircle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div>
+              <span className="font-bold block">กรุณาเข้าสู่ระบบก่อนส่งรายงานความเสียหาย</span>
+              <span className="text-[11px] text-amber-700/80 dark:text-amber-300/80">
+                เพื่อให้คุณสามารถติดตามความคืบหน้างานซ่อมใน &quot;My Reports&quot; และรับการอัปเดตจากเจ้าหน้าที่
+              </span>
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => openAuthModal("signin")}
+            className="text-xs shrink-0 gap-1.5 border-amber-500/40 hover:bg-amber-500/10 font-semibold"
+          >
+            <LogIn className="h-3.5 w-3.5" />
+            <span>เข้าสู่ระบบ / ยืนยันอีเมล</span>
+          </Button>
+        </div>
+      ) : isAuthenticated && user ? (
+        <div className="p-2.5 px-3.5 rounded-xl bg-surface-muted border border-border-subtle flex items-center justify-between gap-2 text-xs text-text-secondary">
+          <div className="flex items-center gap-2 min-w-0">
+            <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span className="truncate">
+              รายงานในนาม: <strong className="text-text-primary">{user.displayName || user.email}</strong>
+            </span>
+          </div>
+          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 shrink-0">
+            บัญชีที่ยืนยันแล้ว
+          </span>
+        </div>
+      ) : null}
 
       {/* STEP 1: EVIDENCE PHOTO */}
       {step === 1 && (
@@ -427,13 +473,22 @@ export function ReportWizard() {
 
             <Button
               type="button"
-              variant="primary"
+              variant={!isDemoMode && !isAuthenticated ? "outline" : "primary"}
               isLoading={isSubmitting}
               onClick={handleSubmit}
               className="gap-2 font-bold px-6 shadow-md w-full sm:w-auto justify-center"
             >
-              <Send className="h-4 w-4 shrink-0" />
-              <span>Submit Road Report</span>
+              {!isDemoMode && !isAuthenticated ? (
+                <>
+                  <LogIn className="h-4 w-4 shrink-0 text-amber-500" />
+                  <span>เข้าสู่ระบบเพื่อส่งรายงาน (Sign In to Submit)</span>
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 shrink-0" />
+                  <span>Submit Road Report</span>
+                </>
+              )}
             </Button>
           </CardFooter>
         </Card>

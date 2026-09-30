@@ -42,3 +42,20 @@ export interface AuthResponse {
     message: string;
   };
 }
+
+export interface SignUpResult {
+  success: boolean;
+  requiresEmailConfirmation?: boolean;
+  email?: string;
+  user?: AuthUser | null;
+  message?: string;
+}
+
+export interface SignInResult {
+  success: boolean;
+  requiresEmailConfirmation?: boolean;
+  email?: string;
+  user?: AuthUser | null;
+  message?: string;
+}
+

@@ -19,6 +19,9 @@ import {
   Check,
   ArrowRight,
   LogOut,
+  MailCheck,
+  RefreshCw,
+  ArrowLeft,
 } from "lucide-react";
 import { getAllDemoUsers } from "@/features/auth/demo-users";
 import { isDemoMode } from "@/lib/env";
@@ -36,31 +39,61 @@ export default function LoginPage() {
     isAuthenticated,
     signIn,
     signUp,
+    resendConfirmation,
     signOut,
     switchDemoRole,
     isLoading,
   } = useAuth();
 
-  const [tab, setTab] = React.useState<"signin" | "signup" | "switch_role">(
+  const [tab, setTab] = React.useState<"signin" | "signup" | "switch_role" | "email_confirmation">(
     isDemoMode ? "switch_role" : "signin"
   );
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [displayName, setDisplayName] = React.useState("");
+  const [isResending, setIsResending] = React.useState(false);
+  const [resendCooldown, setResendCooldown] = React.useState(0);
+
+  React.useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await signIn(email, password);
-    if (success) {
+    const res = await signIn(email, password);
+    if (res.success) {
       router.push(returnTo);
+    } else if (res.requiresEmailConfirmation) {
+      setTab("email_confirmation");
     }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await signUp(email, password, displayName);
-    if (success) {
-      router.push(returnTo);
+    const res = await signUp(email, password, displayName);
+    if (res.success) {
+      if (res.requiresEmailConfirmation) {
+        setTab("email_confirmation");
+      } else {
+        router.push(returnTo);
+      }
+    }
+  };
+
+  const handleResend = async () => {
+    if (!email || isResending || resendCooldown > 0) return;
+    setIsResending(true);
+    try {
+      const ok = await resendConfirmation(email);
+      if (ok) {
+        setResendCooldown(60);
+      }
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -145,46 +178,60 @@ export default function LoginPage() {
         {/* Main Card with Tabs */}
         <Card className="shadow-sm">
           <CardHeader className="pb-3 border-b border-border-subtle">
-            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-muted border border-border-subtle">
-              <button
-                type="button"
-                onClick={() => setTab("signin")}
-                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
-                  tab === "signin"
-                    ? "bg-surface text-text-primary shadow-xs"
-                    : "text-text-secondary hover:text-text-primary"
-                }`}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab("signup")}
-                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
-                  tab === "signup"
-                    ? "bg-surface text-text-primary shadow-xs"
-                    : "text-text-secondary hover:text-text-primary"
-                }`}
-              >
-                Register
-              </button>
-              {isDemoMode && (
+            {tab === "email_confirmation" ? (
+              <div className="flex items-center justify-between p-1.5 rounded-xl bg-surface-muted border border-border-subtle">
                 <button
                   type="button"
-                  onClick={() => setTab("switch_role")}
-                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1 ${
-                    tab === "switch_role"
-                      ? "bg-brand text-white shadow-xs"
+                  onClick={() => setTab("signin")}
+                  className="flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Back to Sign In</span>
+                </button>
+                <span className="text-xs font-bold text-brand pr-2">Email Verification</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-muted border border-border-subtle">
+                <button
+                  type="button"
+                  onClick={() => setTab("signin")}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+                    tab === "signin"
+                      ? "bg-surface text-text-primary shadow-xs"
                       : "text-text-secondary hover:text-text-primary"
                   }`}
                 >
-                  <span>Roles</span>
-                  <Badge variant="outline" size="sm" className="text-[10px] border-white/30 text-current py-0 px-1">
-                    Demo
-                  </Badge>
+                  Sign In
                 </button>
-              )}
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setTab("signup")}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all ${
+                    tab === "signup"
+                      ? "bg-surface text-text-primary shadow-xs"
+                      : "text-text-secondary hover:text-text-primary"
+                  }`}
+                >
+                  Register
+                </button>
+                {isDemoMode && (
+                  <button
+                    type="button"
+                    onClick={() => setTab("switch_role")}
+                    className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1 ${
+                      tab === "switch_role"
+                        ? "bg-brand text-white shadow-xs"
+                        : "text-text-secondary hover:text-text-primary"
+                    }`}
+                  >
+                    <span>Roles</span>
+                    <Badge variant="outline" size="sm" className="text-[10px] border-white/30 text-current py-0 px-1">
+                      Demo
+                    </Badge>
+                  </button>
+                )}
+              </div>
+            )}
           </CardHeader>
 
           <CardContent className="p-6">
@@ -285,6 +332,64 @@ export default function LoginPage() {
                   </Button>
                 </div>
               </form>
+            )}
+
+            {/* TAB: EMAIL CONFIRMATION */}
+            {tab === "email_confirmation" && (
+              <div className="space-y-4 py-2 text-center">
+                <div className="mx-auto w-14 h-14 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
+                  <MailCheck className="h-7 w-7" />
+                </div>
+
+                <div className="space-y-1">
+                  <h3 className="text-lg font-bold text-text-primary">
+                    กรุณายืนยันที่อยู่อีเมลของคุณ
+                  </h3>
+                  <p className="text-xs text-text-muted">
+                    Please verify your email address to activate your account
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl bg-surface-muted border border-border text-left space-y-2.5">
+                  <div className="text-xs text-text-secondary">
+                    เราได้ส่งลิงก์ยืนยันตัวตนไปยัง:
+                  </div>
+                  <div className="font-semibold text-sm text-text-primary bg-surface px-3 py-2 rounded-lg border border-border-subtle break-all">
+                    {email || "your-email@example.com"}
+                  </div>
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    กรุณาตรวจสอบกล่องข้อความในอีเมลของคุณ (รวมถึงโฟลเดอร์ <strong>Junk / Spam</strong>) และคลิกลิงก์ยืนยัน เพื่อเปิดใช้งานบัญชีและเข้าสู่ระบบ
+                  </p>
+                </div>
+
+                <div className="space-y-2.5 pt-2">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    className="w-full gap-2 justify-center"
+                    onClick={handleResend}
+                    isLoading={isResending}
+                    disabled={resendCooldown > 0}
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isResending ? "animate-spin" : ""}`} />
+                    <span>
+                      {resendCooldown > 0
+                        ? `ส่งอีกครั้งได้ใน ${resendCooldown} วินาที`
+                        : "ส่งอีเมลยืนยันอีกครั้ง (Resend Email)"}
+                    </span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full gap-2 justify-center"
+                    onClick={() => setTab("signin")}
+                  >
+                    <LogIn className="h-4 w-4" />
+                    <span>ไปที่หน้าเข้าสู่ระบบ (Sign In)</span>
+                  </Button>
+                </div>
+              </div>
             )}
 
             {/* TAB 3: ROLE SWITCHER (For Testing & Verification) */}

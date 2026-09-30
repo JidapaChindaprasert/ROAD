@@ -227,21 +227,34 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Insert Report with Service Role Client (bypasses RLS trigger limitations securely)
+    // 2. Insert Report with Service Role Client (bypasses RLS trigger limitations securely)
     const admin = createServiceRoleClient();
     const publicId = `REP-${Date.now().toString(36).toUpperCase()}`;
     const pointWkt = `POINT(${normalizedLocation.longitude} ${normalizedLocation.latitude})`;
+
+    // Map source: 'gps' -> 'device', 'manual' -> 'manual' to satisfy reports_location_source_check
+    const dbLocationSource = normalizedLocation.source === "gps" ? "device" : "manual";
+
+    // Map category to standard database categories if needed:
+    // 'pothole', 'crack', 'subsidence', 'debris', 'other'
+    const validDbCategories = ["pothole", "crack", "subsidence", "debris", "other"];
+    let dbCategory: string = input.category;
+    if (!validDbCategories.includes(dbCategory)) {
+      if (dbCategory === "obstruction") dbCategory = "debris";
+      else dbCategory = "other";
+    }
 
     const { data: insertedReport, error: insertError } = await admin
       .from("reports")
       .insert({
         public_id: publicId,
         owner_id: userId,
-        category: input.category,
+        category: dbCategory,
         status: "reported",
         exact_location: pointWkt,
         public_location: pointWkt,
         gps_accuracy_m: normalizedLocation.accuracyMeters,
-        location_source: normalizedLocation.source,
+        location_source: dbLocationSource,
         locality_label: normalizedLocation.localityLabel,
         location_context: input.locationContext,
         description: input.description,
@@ -287,17 +300,23 @@ export async function POST(req: NextRequest) {
 
     // 5. Attach AI Analysis if provided
     if (normalizedAiAnalysis) {
+      let aiCategory: string = normalizedAiAnalysis.primaryCategory;
+      if (!validDbCategories.includes(aiCategory)) {
+        if (aiCategory === "obstruction") aiCategory = "debris";
+        else aiCategory = "other";
+      }
+
       await admin.from("ai_analyses").insert({
         report_id: insertedReport.id,
         provider: normalizedAiAnalysis.provider,
         model: normalizedAiAnalysis.model,
-        primary_category: normalizedAiAnalysis.primaryCategory,
+        primary_category: aiCategory,
         suggested_severity: normalizedAiAnalysis.suggestedSeverity,
-        confidence: normalizedAiAnalysis.confidenceScore || 0.85,
-        summary: normalizedAiAnalysis.summary,
-        features: normalizedAiAnalysis.labels || [],
-        quality_issues: normalizedAiAnalysis.imageQualityIssues,
-        needs_human_review: normalizedAiAnalysis.needsHumanReview,
+        confidence: Math.min(Math.max(normalizedAiAnalysis.confidenceScore || 0.85, 0), 1),
+        labels: normalizedAiAnalysis.labels || [],
+        quality_issues: normalizedAiAnalysis.imageQualityIssues || [],
+        needs_human_review: normalizedAiAnalysis.needsHumanReview || false,
+        state: "completed",
       });
     }
 
@@ -306,7 +325,7 @@ export async function POST(req: NextRequest) {
       id: insertedReport.id,
       publicId: insertedReport.public_id,
       title: `${input.category.toUpperCase()} at ${normalizedLocation.localityLabel || "Bangkok"}`,
-      category: insertedReport.category as DamageCategory,
+      category: (insertedReport.category === "debris" ? "obstruction" : insertedReport.category) as DamageCategory,
       publicStatus: "reported",
       detailedStatus: "reported",
       publicLatitude: normalizedLocation.latitude,

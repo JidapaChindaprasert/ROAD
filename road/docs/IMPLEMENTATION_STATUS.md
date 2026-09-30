@@ -177,6 +177,22 @@
 - **Mode Boundary Preservation**:
   - Interactive role switcher is strictly gated to demo mode (`isDemoMode`). In production mode, role switching is forbidden and disabled, with direct database verification via `public.user_roles`.
 
+### Milestone 8 — Email Verification & Report Submission Alignment ✅
+- **Email Confirmation Screen & Flow**:
+  - Dedicated `email_confirmation` view in both `AuthModal` and `/login` page.
+  - Explains in Thai and English that a verification link was sent to the user's email, highlights the email address, and advises checking Spam/Junk folders.
+  - Includes a "Resend Email" button calling `POST /api/auth/resend-confirmation` with a 60-second cooldown timer.
+- **Unconfirmed Sign-In Interception**:
+  - `POST /api/auth/sign-in` checks for unconfirmed email errors from Supabase and returns an explicit `EMAIL_NOT_CONFIRMED` code.
+  - Client automatically navigates to the email confirmation screen with the email pre-populated.
+- **Report Submission Auth Gate & Guidance**:
+  - `/report/new` displays citizen authentication status at the top of the wizard.
+  - If unauthenticated in production mode, displays an informative banner and guides the user to sign in before submission so reports appear in their "My Reports" history.
+  - Submission button displays "เข้าสู่ระบบเพื่อส่งรายงาน (Sign In to Submit)" when not logged in.
+- **Database Schema & Insert Alignment**:
+  - `supabase/migrations/20260930000003_align_report_constraints.sql`: Aligns PostgreSQL constraints for `location_source` (accepting `'gps'`, `'device'`, `'manual'`, `'exif'`) and `category` (accepting all 9 damage categories).
+  - Aligned `POST /api/reports` to ensure resilient mapping of categories, location source (`gps` -> `device`), and columns inserted into `ai_analyses`.
+
 ## Demo Mode
 - Run with `NEXT_PUBLIC_APP_MODE=demo` (default in `.env.local`).
 - Requires **no external credentials**.

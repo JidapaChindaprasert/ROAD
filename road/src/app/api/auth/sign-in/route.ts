@@ -58,11 +58,16 @@ export async function POST(req: NextRequest) {
     });
 
     if (authError || !authData.user) {
+      const errMsg = authError?.message || "Invalid email or password";
+      const isUnconfirmed = errMsg.toLowerCase().includes("email not confirmed");
       return NextResponse.json(
         {
           error: {
-            code: "INVALID_CREDENTIALS",
-            message: authError?.message || "Invalid email or password",
+            code: isUnconfirmed ? "EMAIL_NOT_CONFIRMED" : "INVALID_CREDENTIALS",
+            message: isUnconfirmed
+              ? "อีเมลนี้ยังไม่ได้ยืนยัน กรุณาตรวจสอบกล่องจดหมายของคุณหรือกดส่งลิงก์ยืนยันอีกครั้ง (Email not confirmed)"
+              : errMsg,
+            email: isUnconfirmed ? email : undefined,
           },
         },
         { status: 401 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { isDemoMode } from "@/lib/env";
+import { isDemoMode, env } from "@/lib/env";
 import { DEMO_AUTH_COOKIE, getAuthenticatedUser } from "@/lib/auth/server-auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
 
     // Production Mode Sign-Up
     const supabase = await createServerSupabaseClient();
+    const appUrl = env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
         data: {
           display_name: displayName,
         },
+        emailRedirectTo: `${appUrl}/auth/callback`,
       },
     });
 
@@ -104,9 +106,23 @@ export async function POST(req: NextRequest) {
         { onConflict: "user_id,role" }
       );
 
+    const isConfirmed = Boolean(authData.session || authData.user.confirmed_at);
+
+    if (!isConfirmed) {
+      return NextResponse.json({
+        data: {
+          requiresEmailConfirmation: true,
+          email,
+          displayName,
+          message: "A verification email has been sent. Please check your inbox.",
+        },
+      });
+    }
+
     const verifiedUser = await getAuthenticatedUser();
     return NextResponse.json({
       data: {
+        requiresEmailConfirmation: false,
         user: verifiedUser || {
           id: newUserId,
           email,

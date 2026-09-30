@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AuthUser, UserRole } from "./types";
+import { AuthUser, UserRole, SignUpResult, SignInResult } from "./types";
 import { toast } from "sonner";
 
 export interface AuthContextValue {
@@ -15,8 +15,9 @@ export interface AuthContextValue {
   authModalMode: "signin" | "signup" | "switch_role";
   openAuthModal: (mode?: "signin" | "signup" | "switch_role") => void;
   closeAuthModal: () => void;
-  signIn: (email: string, password: string) => Promise<boolean>;
-  signUp: (email: string, password: string, displayName: string) => Promise<boolean>;
+  signIn: (email: string, password: string) => Promise<SignInResult>;
+  signUp: (email: string, password: string, displayName: string) => Promise<SignUpResult>;
+  resendConfirmation: (email: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   switchDemoRole: (role: UserRole) => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -76,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthModalOpen(false);
   }, []);
 
-  const signIn = async (email: string, password: string): Promise<boolean> => {
+  const signIn = async (email: string, password: string): Promise<SignInResult> => {
     setIsLoading(true);
     try {
       const res = await fetch("/api/auth/sign-in", {
@@ -87,17 +88,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const json = await res.json();
       if (!res.ok || json.error) {
+        const isUnconfirmed = json.error?.code === "EMAIL_NOT_CONFIRMED";
         toast.error(json.error?.message || "Sign in failed");
-        return false;
+        return {
+          success: false,
+          requiresEmailConfirmation: isUnconfirmed,
+          email,
+          message: json.error?.message,
+        };
       }
 
       setUser(json.data.user);
       toast.success(`Signed in as ${json.data.user.displayName}`);
       closeAuthModal();
-      return true;
+      return { success: true, user: json.data.user };
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sign in request failed");
-      return false;
+      const message = err instanceof Error ? err.message : "Sign in request failed";
+      toast.error(message);
+      return { success: false, message };
     } finally {
       setIsLoading(false);
     }
@@ -107,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: string,
     password: string,
     displayName: string
-  ): Promise<boolean> => {
+  ): Promise<SignUpResult> => {
     setIsLoading(true);
     try {
       const res = await fetch("/api/auth/sign-up", {
@@ -119,18 +127,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const json = await res.json();
       if (!res.ok || json.error) {
         toast.error(json.error?.message || "Sign up failed");
-        return false;
+        return { success: false, message: json.error?.message || "Sign up failed" };
       }
 
-      setUser(json.data.user);
-      toast.success(`Account created! Welcome, ${json.data.user.displayName}`);
-      closeAuthModal();
-      return true;
+      if (json.data?.requiresEmailConfirmation) {
+        return {
+          success: true,
+          requiresEmailConfirmation: true,
+          email,
+          message: json.data?.message || "Please check your inbox to confirm your email.",
+        };
+      }
+
+      if (json.data?.user) {
+        setUser(json.data.user);
+        toast.success(`Account created! Welcome, ${json.data.user.displayName}`);
+        closeAuthModal();
+      }
+
+      return { success: true, requiresEmailConfirmation: false, user: json.data?.user };
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Sign up request failed");
-      return false;
+      const message = err instanceof Error ? err.message : "Sign up request failed";
+      toast.error(message);
+      return { success: false, message };
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const resendConfirmation = async (email: string): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/auth/resend-confirmation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        toast.success(json.data?.message || `Confirmation email resent to ${email}`);
+        return true;
+      } else {
+        toast.error(json.error?.message || "Failed to resend confirmation email.");
+        return false;
+      }
+    } catch {
+      toast.error("Failed to resend confirmation email.");
+      return false;
     }
   };
 
@@ -190,6 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     closeAuthModal,
     signIn,
     signUp,
+    resendConfirmation,
     signOut,
     switchDemoRole,
     refreshSession,
