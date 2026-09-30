@@ -56,10 +56,14 @@ export function toReportSummary(detail: ReportDetail): ReportSummary {
     category: detail.category,
     publicStatus: detail.publicStatus,
     detailedStatus: detail.detailedStatus,
-    publicLatitude: detail.publicLocation.latitude,
-    publicLongitude: detail.publicLocation.longitude,
+    publicLatitude: detail.publicLocation?.latitude ?? detail.publicLatitude ?? 13.7563,
+    publicLongitude: detail.publicLocation?.longitude ?? detail.publicLongitude ?? 100.5018,
     localityLabel: detail.localityLabel,
-    thumbnailUrl: detail.thumbnailUrl || (detail.media.length > 0 ? detail.media[0].thumbnailUrl || detail.media[0].url : undefined),
+    thumbnailUrl:
+      detail.thumbnailUrl ||
+      (Array.isArray(detail.media) && detail.media.length > 0
+        ? detail.media[0]?.thumbnailUrl || detail.media[0]?.url
+        : undefined),
     operationalPriority: detail.operationalPriority,
     createdAt: detail.createdAt,
     updatedAt: detail.updatedAt,

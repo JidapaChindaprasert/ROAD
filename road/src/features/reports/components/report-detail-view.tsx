@@ -10,15 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   MapPin,
-  Calendar,
   Sparkles,
   ArrowLeft,
   Share2,
   Play,
-  RotateCcw,
-  CheckCircle2,
   Shield,
-  Layers,
   FileText,
 } from "lucide-react";
 import { DAMAGE_CATEGORY_CONFIG, STATUS_DISPLAY_CONFIG } from "../status-machine";
@@ -40,6 +36,11 @@ export function ReportDetailView({ initialReport }: ReportDetailViewProps) {
   const [isSimulating, setIsSimulating] = React.useState(false);
   const [activeMediaIndex, setActiveMediaIndex] = React.useState(0);
   const [isGovFormOpen, setIsGovFormOpen] = React.useState(false);
+
+  const reportMedia = report.media || [];
+  const reportEvents = report.events || [];
+  const publicLat = report.publicLocation?.latitude ?? report.publicLatitude ?? 13.7563;
+  const publicLng = report.publicLocation?.longitude ?? report.publicLongitude ?? 100.5018;
 
   const categoryMeta =
     DAMAGE_CATEGORY_CONFIG[report.category] || DAMAGE_CATEGORY_CONFIG.other;
@@ -207,7 +208,7 @@ export function ReportDetailView({ initialReport }: ReportDetailViewProps) {
                   {report.localityLabel || "Bangkok Metro Area"}
                 </span>
                 <span className="text-text-muted">
-                  ({formatCoordinates(report.publicLocation.latitude, report.publicLocation.longitude)})
+                  ({formatCoordinates(publicLat, publicLng)})
                 </span>
               </div>
               <div className="flex items-center gap-1">
@@ -234,14 +235,14 @@ export function ReportDetailView({ initialReport }: ReportDetailViewProps) {
             <CardTitle className="text-base flex items-center justify-between">
               <span>Attached Evidence</span>
               <span className="text-xs font-normal text-text-muted">
-                {report.media.length} {report.media.length === 1 ? "file" : "files"}
+                {reportMedia.length} {reportMedia.length === 1 ? "file" : "files"}
               </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {(() => {
               const fallbackImg = CATEGORY_FALLBACK_IMAGES[report.category] || DEFAULT_ROAD_DAMAGE_IMAGE;
-              const rawActive = report.media[activeMediaIndex]?.url || report.media[0]?.url || report.thumbnailUrl;
+              const rawActive = reportMedia[activeMediaIndex]?.url || reportMedia[0]?.url || report.thumbnailUrl;
               const safeActive = getSafeImageUrl(rawActive, report.category);
 
               return (
@@ -268,9 +269,9 @@ export function ReportDetailView({ initialReport }: ReportDetailViewProps) {
                     )}
                   </div>
 
-                  {report.media.length > 1 && (
+                  {reportMedia.length > 1 && (
                     <div className="flex gap-2 overflow-x-auto pb-1">
-                      {report.media.map((m, idx) => (
+                      {reportMedia.map((m, idx) => (
                         <button
                           key={m.id}
                           type="button"
@@ -339,7 +340,7 @@ export function ReportDetailView({ initialReport }: ReportDetailViewProps) {
           <CardTitle className="text-xl">Repair Progress & Event History</CardTitle>
         </CardHeader>
         <CardContent>
-          <ReportTimeline events={report.events} />
+          <ReportTimeline events={reportEvents} />
         </CardContent>
       </Card>
 

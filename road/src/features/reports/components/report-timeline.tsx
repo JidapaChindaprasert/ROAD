@@ -1,6 +1,6 @@
 import * as React from "react";
 import { TimelineEvent } from "../types";
-import { CheckCircle2, Clock, Wrench, Shield, AlertCircle, Calendar, UserCheck } from "lucide-react";
+import { CheckCircle2, Clock, Wrench, Shield, Calendar, UserCheck } from "lucide-react";
 import { formatRelativeTime, formatDate } from "@/lib/utils";
 import { DEFAULT_ROAD_DAMAGE_IMAGE, getSafeImageUrl } from "@/lib/constants/fallback-images";
 
@@ -9,7 +9,9 @@ export interface ReportTimelineProps {
   className?: string;
 }
 
-export function ReportTimeline({ events, className = "" }: ReportTimelineProps) {
+export function ReportTimeline({ events = [], className = "" }: ReportTimelineProps) {
+  const safeEvents = events || [];
+
   const getEventIcon = (toStatus: string) => {
     switch (toStatus) {
       case "resolved":
@@ -44,10 +46,18 @@ export function ReportTimeline({ events, className = "" }: ReportTimelineProps) 
     }
   };
 
+  if (safeEvents.length === 0) {
+    return (
+      <div className={`p-4 text-center text-xs text-text-muted ${className}`}>
+        No timeline events recorded yet.
+      </div>
+    );
+  }
+
   return (
     <div className={`space-y-6 ${className}`}>
       <div className="relative pl-6 sm:pl-8 border-l-2 border-border/80 space-y-8 ml-3">
-        {events.map((evt, idx) => {
+        {safeEvents.map((evt, idx) => {
           const isLatest = idx === events.length - 1;
 
           return (

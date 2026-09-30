@@ -40,8 +40,14 @@ export function SelectedReportPanel({
   const categoryMeta = DAMAGE_CATEGORY_CONFIG[report.category] || DAMAGE_CATEGORY_CONFIG.other;
   const statusMeta = STATUS_DISPLAY_CONFIG[report.detailedStatus] || STATUS_DISPLAY_CONFIG.reported;
 
-  const lat = "publicLocation" in report ? report.publicLocation.latitude : report.publicLatitude;
-  const lng = "publicLocation" in report ? report.publicLocation.longitude : report.publicLongitude;
+  const lat =
+    "publicLocation" in report && report.publicLocation?.latitude != null
+      ? report.publicLocation.latitude
+      : (report.publicLatitude ?? 13.7563);
+  const lng =
+    "publicLocation" in report && report.publicLocation?.longitude != null
+      ? report.publicLocation.longitude
+      : (report.publicLongitude ?? 100.5018);
 
   const handleShare = (e: React.MouseEvent) => {
     e.stopPropagation();

@@ -56,6 +56,9 @@ export function ThaiRepairRequestModal({
   // Derive Thai Buddhist Era Date from report created date
   const initialDate = parseThaiDate(report.createdAt);
 
+  const modalLat = report.publicLocation?.latitude ?? report.publicLatitude ?? 13.7563;
+  const modalLng = report.publicLocation?.longitude ?? report.publicLongitude ?? 100.5018;
+
   // Extract address elements
   const locationLabel = report.localityLabel || "ตำบลหนองไฮ";
   const defaultRoadName =
@@ -373,7 +376,7 @@ export function ThaiRepairRequestModal({
                 <div>
                   <strong>พิกัดดาวเทียม (GPS):</strong>{" "}
                   <span className="font-mono">
-                    {formatCoordinates(report.publicLocation.latitude, report.publicLocation.longitude, 5)}
+                    {formatCoordinates(modalLat, modalLng, 5)}
                   </span>
                 </div>
                 <div>

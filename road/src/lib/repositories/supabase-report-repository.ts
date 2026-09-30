@@ -7,6 +7,9 @@ import {
   MapBounds,
   MapFilterState,
   MediaItem,
+  DamageCategory,
+  PublicStatus,
+  ReportStatus,
 } from "@/features/reports/types";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -80,6 +83,19 @@ export class SupabaseReportRepository implements IReportRepository {
   }
 
   async getPublicReport(id: string): Promise<ReportDetail | null> {
+    // 1. Try server API endpoint which runs with service role and avoids all RLS issues
+    if (typeof window !== "undefined") {
+      try {
+        const res = await fetch(`/api/reports/${encodeURIComponent(id)}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.data) return json.data as ReportDetail;
+        }
+      } catch {
+        // Continue to direct Supabase query
+      }
+    }
+
     const supabase = this.getClient();
 
     // Check user session
@@ -107,7 +123,61 @@ export class SupabaseReportRepository implements IReportRepository {
         { p_identifier: id }
       );
       if (rpcError || !rpcData) return null;
-      return rpcData as ReportDetail;
+
+      // Safely map rpcData to ReportDetail so properties like publicLocation are never undefined
+      const raw = rpcData as Record<string, unknown>;
+      const loc = (raw.location && typeof raw.location === "object" ? raw.location : {}) as Record<string, unknown>;
+      const lat = typeof loc.latitude === "number" ? loc.latitude : 13.7563;
+      const lng = typeof loc.longitude === "number" ? loc.longitude : 100.5018;
+      const status = (typeof raw.status === "string" ? raw.status : "reported") as ReportStatus;
+      const timeline = Array.isArray(raw.timeline) ? (raw.timeline as Array<Record<string, unknown>>) : [];
+
+      let publicStatus: PublicStatus = "reported";
+      if (status === "repairing") publicStatus = "repairing";
+      else if (status === "resolved") publicStatus = "fixed";
+
+      const mapped: ReportDetail = {
+        id: (raw.id as string) || id,
+        publicId: (raw.publicId as string) || (raw.id as string) || id,
+        title: `${((raw.category as string) || "hazard").toUpperCase()} at ${typeof loc.localityLabel === "string" ? loc.localityLabel : "Bangkok"}`,
+        category: ((raw.category as string) || "pothole") as DamageCategory,
+        publicStatus,
+        detailedStatus: status,
+        publicLatitude: lat,
+        publicLongitude: lng,
+        localityLabel: typeof loc.localityLabel === "string" ? loc.localityLabel : undefined,
+        description: typeof raw.description === "string" ? raw.description : undefined,
+        locationContext: typeof loc.locationContext === "string" ? loc.locationContext : undefined,
+        media: [],
+        events: timeline.map((evt, idx) => ({
+          id: (evt.id as string) || `evt-${idx}`,
+          reportId: (raw.id as string) || id,
+          fromStatus: evt.fromStatus as ReportStatus | undefined,
+          toStatus: (evt.toStatus as ReportStatus) || status,
+          publicNote: (evt.note as string) || "อัปเดตสถานะการซ่อมแซม",
+          actorName: "Maintenance Operations",
+          actorRole: "staff" as const,
+          createdAt: (evt.createdAt as string) || new Date().toISOString(),
+        })),
+        version: typeof raw.version === "number" ? raw.version : 1,
+        createdAt: (raw.createdAt as string) || new Date().toISOString(),
+        updatedAt: (raw.updatedAt as string) || new Date().toISOString(),
+        exactLocation: {
+          latitude: lat,
+          longitude: lng,
+          source: "manual",
+          capturedAt: (raw.createdAt as string) || new Date().toISOString(),
+          localityLabel: typeof loc.localityLabel === "string" ? loc.localityLabel : undefined,
+        },
+        publicLocation: {
+          latitude: lat,
+          longitude: lng,
+          localityLabel: typeof loc.localityLabel === "string" ? loc.localityLabel : undefined,
+          isGeneralized: true,
+        },
+      };
+
+      return mapped;
     }
 
     // Fetch related timeline events
@@ -131,12 +201,19 @@ export class SupabaseReportRepository implements IReportRepository {
       .order("created_at", { ascending: false })
       .limit(1);
 
+    let pubLng = 100.5018;
+    let pubLat = 13.7563;
+    if (report.public_location && typeof report.public_location === "object" && Array.isArray(report.public_location.coordinates)) {
+      pubLng = report.public_location.coordinates[0];
+      pubLat = report.public_location.coordinates[1];
+    }
+
     const reportRow: DbReportRow = {
       ...report,
-      public_longitude: report.public_location?.coordinates?.[0] ?? 100.5018,
-      public_latitude: report.public_location?.coordinates?.[1] ?? 13.7563,
-      exact_longitude: report.exact_location?.coordinates?.[0],
-      exact_latitude: report.exact_location?.coordinates?.[1],
+      public_longitude: pubLng,
+      public_latitude: pubLat,
+      exact_longitude: report.exact_location?.coordinates?.[0] ?? pubLng,
+      exact_latitude: report.exact_location?.coordinates?.[1] ?? pubLat,
     };
 
     return mapDbReportToDetail(reportRow, {

@@ -69,7 +69,11 @@ export function SubmissionSuccess({ report, onResetWizard }: SubmissionSuccessPr
           <div>
             <span className="text-text-muted">Location</span>
             <div className="font-semibold text-text-primary truncate mt-0.5">
-              {report.localityLabel || formatCoordinates(report.publicLocation.latitude, report.publicLocation.longitude)}
+              {report.localityLabel ||
+                formatCoordinates(
+                  report.publicLocation?.latitude ?? report.publicLatitude ?? 13.7563,
+                  report.publicLocation?.longitude ?? report.publicLongitude ?? 100.5018
+                )}
             </div>
           </div>
         </div>
