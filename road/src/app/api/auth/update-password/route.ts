@@ -6,6 +6,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 const updatePasswordSchema = z.object({
   password: z.string().min(6, "รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร"),
   code: z.string().optional(),
+  token: z.string().optional(),
+  email: z.string().email().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -19,7 +21,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { password, code } = parsed.data;
+    const { password, code, token, email } = parsed.data;
 
     // Demo Mode
     if (isDemoMode) {
@@ -31,7 +33,24 @@ export async function POST(req: NextRequest) {
     // Production Mode with Supabase
     const supabase = await createServerSupabaseClient();
 
-    // If a code was passed, exchange it first
+    // 1. If an OTP token and email were passed, verify OTP first
+    if (token && email) {
+      try {
+        const cleanToken = token.trim().replace(/[\s-]/g, "");
+        const { error: otpError } = await supabase.auth.verifyOtp({
+          email,
+          token: cleanToken,
+          type: "recovery",
+        });
+        if (otpError) {
+          console.warn("verifyOtp recovery failed:", otpError.message);
+        }
+      } catch (otpErr) {
+        console.warn("Failed to verify recovery OTP:", otpErr);
+      }
+    }
+
+    // 2. If a PKCE code was passed, exchange it for session
     if (code) {
       try {
         await supabase.auth.exchangeCodeForSession(code);

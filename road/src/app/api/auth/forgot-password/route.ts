@@ -38,10 +38,59 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       const errMsg = error.message || "";
+      console.warn("resetPasswordForEmail failed, attempting service role link fallback:", errMsg);
+
+      // Attempt fallback via admin API if service role key is available
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      if (serviceRoleKey && supabaseUrl) {
+        try {
+          const linkRes = await fetch(`${supabaseUrl}/auth/v1/admin/generate_link`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: serviceRoleKey,
+              Authorization: `Bearer ${serviceRoleKey}`,
+            },
+            body: JSON.stringify({
+              type: "recovery",
+              email,
+              options: {
+                redirectTo: `${appUrl}/reset-password`,
+              },
+            }),
+          });
+
+          if (linkRes.ok) {
+            const linkJson = await linkRes.json();
+            const actionLink = linkJson.action_link || linkJson.properties?.action_link;
+            const emailOtp = linkJson.email_otp || linkJson.properties?.email_otp;
+
+            if (actionLink) {
+              return NextResponse.json({
+                data: {
+                  message: "ระบบได้สร้างลิงก์สำหรับตั้งรหัสผ่านใหม่เรียบร้อยแล้ว",
+                  recoveryUrl: actionLink,
+                  recoveryOtp: emailOtp,
+                  notice:
+                    "เนื่องจากบริการอีเมลจำกัดการส่ง (Resend Sandbox) จึงแสดงลิงก์และรหัส OTP ให้คุณใช้ตั้งรหัสผ่านใหม่ได้ทันที",
+                },
+              });
+            }
+          }
+        } catch (adminErr) {
+          console.error("Admin recovery link fallback error:", adminErr);
+        }
+      }
+
       let userFriendlyMessage = errMsg;
 
       if (errMsg.toLowerCase().includes("rate limit") || errMsg.toLowerCase().includes("60 seconds")) {
         userFriendlyMessage = "ส่งคำขอถี่เกินไป กรุณารอ 60 วินาทีก่อนกดขอใหม่อีกครั้ง";
+      } else if (errMsg.toLowerCase().includes("recovery email")) {
+        userFriendlyMessage =
+          "บริการอีเมลไม่สามารถส่งข้อความได้ (Resend Sandbox จำกัดเฉพาะเจ้าของบัญชี) กรุณาตรวจสอบการตั้งค่า SMTP ใน Supabase Dashboard หรือติดต่อผู้ดูแลระบบ";
       }
 
       return NextResponse.json(

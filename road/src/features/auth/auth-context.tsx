@@ -19,7 +19,13 @@ export interface AuthContextValue {
   signUp: (email: string, password: string, displayName: string) => Promise<SignUpResult>;
   resendConfirmation: (email: string) => Promise<boolean>;
   verifyEmailOtp: (email: string, token: string) => Promise<{ success: boolean; message: string }>;
-  forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
+  forgotPassword: (email: string) => Promise<{
+    success: boolean;
+    message: string;
+    recoveryUrl?: string;
+    recoveryOtp?: string;
+    notice?: string;
+  }>;
   signOut: () => Promise<void>;
   switchDemoRole: (role: UserRole) => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -211,7 +217,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const forgotPassword = async (email: string): Promise<{ success: boolean; message: string }> => {
+  const forgotPassword = async (email: string): Promise<{
+    success: boolean;
+    message: string;
+    recoveryUrl?: string;
+    recoveryOtp?: string;
+    notice?: string;
+  }> => {
     setIsLoading(true);
     try {
       const res = await fetch("/api/auth/forgot-password", {
@@ -225,8 +237,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         toast.error(msg);
         return { success: false, message: msg };
       }
-      toast.success(json.data?.message || "ส่งลิงก์รีเซ็ตรหัสผ่านแล้ว");
-      return { success: true, message: json.data?.message || "ส่งลิงก์รีเซ็ตรหัสผ่านแล้ว" };
+      toast.success(json.data?.message || "สร้างคำขอรีเซ็ตรหัสผ่านแล้ว");
+      return {
+        success: true,
+        message: json.data?.message || "สร้างคำขอรีเซ็ตรหัสผ่านแล้ว",
+        recoveryUrl: json.data?.recoveryUrl,
+        recoveryOtp: json.data?.recoveryOtp,
+        notice: json.data?.notice,
+      };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error requesting password reset";
       toast.error(msg);

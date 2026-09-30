@@ -51,7 +51,12 @@ export function AuthModal() {
   // Forgot password state
   const [forgotEmail, setForgotEmail] = React.useState("");
   const [isSendingReset, setIsSendingReset] = React.useState(false);
-  const [resetSentMessage, setResetSentMessage] = React.useState<string | null>(null);
+  const [resetResult, setResetResult] = React.useState<{
+    message: string;
+    recoveryUrl?: string;
+    recoveryOtp?: string;
+    notice?: string;
+  } | null>(null);
 
   const defaultTab =
     isDemoMode && authModalMode === "switch_role"
@@ -65,7 +70,7 @@ export function AuthModal() {
 
   const handleClose = () => {
     setTabOverride(null);
-    setResetSentMessage(null);
+    setResetResult(null);
     closeAuthModal();
   };
 
@@ -86,11 +91,11 @@ export function AuthModal() {
     const targetEmail = (forgotEmail || email).trim();
     if (!targetEmail) return;
     setIsSendingReset(true);
-    setResetSentMessage(null);
+    setResetResult(null);
     try {
       const res = await forgotPassword(targetEmail);
       if (res.success) {
-        setResetSentMessage(res.message);
+        setResetResult(res);
       }
     } finally {
       setIsSendingReset(false);
@@ -115,7 +120,7 @@ export function AuthModal() {
               type="button"
               onClick={() => {
                 setTabOverride("signin");
-                setResetSentMessage(null);
+                setResetResult(null);
               }}
               className="flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors"
             >
@@ -266,24 +271,60 @@ export function AuthModal() {
         {/* TAB 3: FORGOT PASSWORD */}
         {tab === "forgot_password" && (
           <div className="space-y-4">
-            {resetSentMessage ? (
+            {resetResult ? (
               <div className="space-y-4 text-center py-2">
                 <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600">
                   <CheckCircle2 className="h-6 w-6" />
                 </div>
-                <div className="space-y-1">
-                  <h4 className="font-bold text-text-primary text-base">ส่งลิงก์ตั้งรหัสผ่านใหม่แล้ว</h4>
+                <div className="space-y-1.5">
+                  <h4 className="font-bold text-text-primary text-base">สร้างคำขอตั้งรหัสผ่านใหม่แล้ว</h4>
                   <p className="text-xs text-text-muted leading-relaxed">
-                    {resetSentMessage}
+                    {resetResult.message}
                   </p>
                 </div>
+
+                {resetResult.notice && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 text-left flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <span>{resetResult.notice}</span>
+                  </div>
+                )}
+
+                {resetResult.recoveryUrl && (
+                  <a
+                    href={resetResult.recoveryUrl}
+                    className="block w-full"
+                    onClick={() => closeAuthModal()}
+                  >
+                    <Button
+                      type="button"
+                      variant="primary"
+                      className="w-full gap-2 justify-center font-bold shadow-sm"
+                    >
+                      <KeyRound className="h-4 w-4" />
+                      <span>คลิกเพื่อตั้งรหัสผ่านใหม่ทันที</span>
+                    </Button>
+                  </a>
+                )}
+
+                {resetResult.recoveryOtp && (
+                  <div className="p-3.5 rounded-xl bg-surface-muted border border-border text-center space-y-1">
+                    <span className="text-[11px] text-text-secondary font-medium">
+                      หรือใช้รหัส OTP สำหรับตั้งรหัสผ่านใหม่:
+                    </span>
+                    <p className="font-mono text-xl font-extrabold tracking-widest text-brand">
+                      {resetResult.recoveryOtp}
+                    </p>
+                  </div>
+                )}
+
                 <Button
                   type="button"
                   variant="outline"
                   className="w-full"
                   onClick={() => {
                     setTabOverride("signin");
-                    setResetSentMessage(null);
+                    setResetResult(null);
                   }}
                 >
                   กลับไปหน้าเข้าสู่ระบบ

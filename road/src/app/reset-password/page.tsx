@@ -9,17 +9,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { KeyRound, CheckCircle2, AlertCircle, ArrowLeft, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const code = searchParams.get("code") || undefined;
+  const urlToken = searchParams.get("token") || undefined;
+  const urlEmail = searchParams.get("email") || undefined;
 
   const [password, setPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSuccess, setIsSuccess] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    // If arriving from Supabase redirect containing hash fragments (#access_token=...),
+    // initializing browser client captures it and syncs session cookie.
+    try {
+      if (typeof window !== "undefined" && window.location.hash.includes("access_token")) {
+        createClient();
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +55,7 @@ export default function ResetPasswordPage() {
       const res = await fetch("/api/auth/update-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password, code }),
+        body: JSON.stringify({ password, code, token: urlToken, email: urlEmail }),
       });
 
       const json = await res.json();

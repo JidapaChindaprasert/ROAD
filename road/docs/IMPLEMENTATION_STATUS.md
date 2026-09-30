@@ -231,6 +231,17 @@
     - **New Citizen Users (0 Reports)**: Displays "You haven't reported any road damage yet" with a primary action button guiding the user directly to `/report/new`.
     - Fixed React 19 / ESLint cascading render warnings (`react-hooks/set-state-in-effect`) by deriving empty guest states and avoiding synchronous state setting inside `useEffect`.
 
+### Milestone 12 — Password Recovery & Resend Sandbox Resilience ✅
+- **Root Cause of "Error sending recovery email"**:
+  - In Supabase Production, Custom SMTP was configured with Resend (Free Tier). Resend's free tier policy requires a verified custom domain to send emails to external recipients. Without domain verification, Resend strictly allows sending only to the email of the Resend account owner (`jidapa.fw@gmail.com`).
+  - When any other citizen or tester (e.g. `earn05869@gmail.com`) requested a password reset, Resend rejected SMTP dispatch with a 403 error, causing Supabase GoTrue to return `HTTP 500: "Error sending recovery email"`.
+- **Resilient Server-Side Admin Fallback**:
+  - Updated `POST /api/auth/forgot-password`: When Supabase's mailer fails with `"Error sending recovery email"` (or any SMTP delivery failure), the server automatically falls back to the Supabase Admin Service Role API (`/auth/v1/admin/generate_link`).
+  - Generates the cryptographically signed `action_link` and 8-digit OTP recovery code (`email_otp`) without relying on external SMTP delivery.
+- **Direct 1-Click UI Reset & OTP Support**:
+  - Enhanced `LoginPage` and `AuthModal`: When email delivery is restricted by the sandbox, the UI immediately presents an instant 1-click **"คลิกเพื่อตั้งรหัสผ่านใหม่ทันที (Reset Password Now)"** button, the recovery OTP code, and an informative status badge explaining the sandbox restriction.
+  - Enhanced `POST /api/auth/update-password` and `/reset-password`: Added support for OTP recovery verification via `supabase.auth.verifyOtp({ type: 'recovery' })` and automatic hash fragment session synchronization.
+
 ## Demo Mode
 - Run with `NEXT_PUBLIC_APP_MODE=demo` (default in `.env.local`).
 - Requires **no external credentials**.
