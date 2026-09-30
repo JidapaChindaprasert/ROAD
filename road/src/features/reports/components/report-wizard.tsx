@@ -21,6 +21,7 @@ import {
   MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/features/auth/use-auth";
 
 /** Generate a unique media ID */
 function generateMediaId(): string {
@@ -38,6 +39,7 @@ function generateIdempotencyKey(): string {
 
 export function ReportWizard() {
   const repository = useReportRepository();
+  const { user } = useAuth();
 
   // Wizard Step (1: Evidence & Category, 2: Location & Review, 3: Success)
   const [step, setStep] = React.useState<1 | 2 | 3>(1);
@@ -195,6 +197,7 @@ export function ReportWizard() {
       const result = await repository.submitReport({
         draftId: `draft-${Date.now().toString()}`,
         idempotencyKey,
+        ownerId: user?.id,
         category: aiAnalysis?.primaryCategory || selectedCategory || "pothole",
         description: description.trim() || undefined,
         locationContext: locationContext.trim() || undefined,
@@ -306,7 +309,7 @@ export function ReportWizard() {
               Drop a photo. We’ll help identify the damage.
             </CardTitle>
             <CardDescription className="text-xs sm:text-sm">
-              ถ่ายหรืออัปโหลดภาพถ่ายจุดเกิดเหตุ ระบบมี AI ช่วยตรวจจับประเภทความเสียหายอัตโนมัติ
+              ถ่ายหรืออัปโหลดภาพถ่ายจุดเกิดเหตุ ระบบช่วยตรวจจับประเภทความเสียหายอัตโนมัติ
             </CardDescription>
           </CardHeader>
 

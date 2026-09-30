@@ -21,6 +21,9 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { DAMAGE_CATEGORY_CONFIG, STATUS_DISPLAY_CONFIG } from "@/features/reports/status-machine";
+import { formatRelativeTime } from "@/lib/utils";
+import { getSafeImageUrl } from "@/lib/constants/fallback-images";
 
 export interface CityMapProps {
   reports?: ReportSummary[];
@@ -338,6 +341,21 @@ export function CityMap({
         `;
       }
 
+      const safeThumb = getSafeImageUrl(report.thumbnailUrl, report.category);
+      const catLabel = DAMAGE_CATEGORY_CONFIG[report.category]?.label || report.category;
+      const statusLabel = STATUS_DISPLAY_CONFIG[report.detailedStatus]?.publicLabel || report.publicStatus;
+
+      let statusBadgeClass = "bg-amber-500 text-white";
+      if (report.publicStatus === "repairing") {
+        statusBadgeClass = "bg-indigo-600 text-white";
+      } else if (report.publicStatus === "fixed") {
+        statusBadgeClass = "bg-emerald-600 text-white";
+      }
+
+      const relativeTime = formatRelativeTime(report.createdAt);
+      const cleanTitle = (report.title || "รายงานความเสียหายถนน").replace(/"/g, "&quot;");
+      const cleanLocality = (report.localityLabel || "กรุงเทพมหานครและปริมณฑล").replace(/"/g, "&quot;");
+
       const icon = L.divIcon({
         className: "road-leaflet-div-icon",
         html: `
@@ -346,12 +364,53 @@ export function CityMap({
             <div class="w-7 h-7 rounded-full ${statusBg} text-white border-2 border-white shadow-lg flex items-center justify-center ${isSelected ? "scale-125 ring-2 ring-primary" : "hover:scale-115 transition-transform"}">
               ${statusIconSvg}
             </div>
-            <!-- Tooltip on hover -->
-            <div class="absolute bottom-9 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center pointer-events-none z-50 whitespace-nowrap">
-              <div class="bg-gray-900/95 text-white text-[11px] font-medium py-1 px-2.5 rounded-lg shadow-xl backdrop-blur-sm border border-gray-700/50">
-                <span class="font-bold text-amber-300 capitalize">${report.category}</span>: ${report.title.slice(0, 30)}
+
+            <!-- Rich Preview Card on Mouse Hover (Desktop Only) -->
+            <div class="absolute bottom-10 left-1/2 -translate-x-1/2 hidden md:group-hover:flex flex-col items-center pointer-events-none z-[1000] w-72 text-left shadow-2xl rounded-2xl bg-white border border-gray-200/90 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              <!-- Thumbnail Hero Image -->
+              <div class="relative w-full h-32 bg-slate-900 overflow-hidden shrink-0">
+                <img src="${safeThumb}" alt="${cleanTitle}" class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"></div>
+                <div class="absolute top-2 left-2 flex items-center gap-1.5">
+                  <span class="text-[10px] font-bold font-mono px-2 py-0.5 rounded-md bg-black/60 text-white backdrop-blur-xs border border-white/20">
+                    ${report.publicId}
+                  </span>
+                </div>
+                <div class="absolute top-2 right-2">
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-md ${statusBadgeClass}">
+                    ${statusLabel}
+                  </span>
+                </div>
+                <div class="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between text-white text-[11px]">
+                  <span class="font-bold text-amber-300 capitalize">${catLabel}</span>
+                  <span class="text-gray-300 text-[10px] font-medium">${relativeTime}</span>
+                </div>
               </div>
-              <div class="w-1.5 h-1.5 bg-gray-900 rotate-45 -mt-0.5"></div>
+
+              <!-- Content Body -->
+              <div class="p-3 w-full bg-white space-y-1.5">
+                <h4 class="text-xs font-bold text-gray-900 line-clamp-2 leading-snug">
+                  ${cleanTitle}
+                </h4>
+                <div class="flex items-center gap-1.5 text-[11px] text-gray-500">
+                  <svg class="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  <span class="truncate">${cleanLocality}</span>
+                </div>
+
+                <!-- Footer Hint -->
+                <div class="pt-2 border-t border-gray-100 flex items-center justify-between text-[11px] font-semibold text-blue-600">
+                  <span>คลิกเพื่อดูไทม์ไลน์การซ่อมฉบับเต็ม</span>
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Bottom Arrow pointing to pin -->
+              <div class="w-2.5 h-2.5 bg-white border-r border-b border-gray-200 rotate-45 -mt-1.5 mb-1 shrink-0"></div>
             </div>
           </div>
         `,
@@ -361,10 +420,20 @@ export function CityMap({
 
       const marker = L.marker([lat, lng], { icon, zIndexOffset: isSelected ? 500 : 100 }).addTo(map);
 
+      marker.on("mouseover", () => {
+        marker.setZIndexOffset(1000);
+      });
+
+      marker.on("mouseout", () => {
+        marker.setZIndexOffset(isSelected ? 500 : 100);
+      });
+
       marker.on("click", (e) => {
         L.DomEvent.stopPropagation(e);
         if (onSelectReport) {
           onSelectReport(report);
+        } else {
+          router.push(`/reports/${report.id}`);
         }
       });
 

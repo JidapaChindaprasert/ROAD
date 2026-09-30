@@ -15,7 +15,7 @@ test.describe("Citizen Damage Report Submission Flow", () => {
 
     // Verify attached evidence and AI analysis preview
     await expect(page.getByText(/Attached Evidence \(1\/[15]\)/i)).toBeVisible();
-    await expect(page.getByText(/(Roboflow Demo Detection|AI Classification)/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/(Damage Classification|AI Classification)/i)).toBeVisible({ timeout: 10000 });
 
     // Proceed to Step 2: Location
     const nextBtn = page.getByRole("button", { name: /Next: Confirm Location/i });

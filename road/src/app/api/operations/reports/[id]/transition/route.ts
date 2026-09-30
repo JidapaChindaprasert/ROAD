@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isDemoMode } from "@/lib/env";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { canTransitionStatus } from "@/features/reports/status-machine";
+import { getAuthenticatedUser } from "@/lib/auth/server-auth";
 
 export async function POST(
   req: NextRequest,
@@ -36,11 +37,21 @@ export async function POST(
       });
     }
 
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser || (!authUser.isStaff && !authUser.isAdmin)) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "FORBIDDEN",
+            message: "Only authorized municipal staff or administrators can update report status.",
+          },
+        },
+        { status: 403 }
+      );
+    }
 
+    const supabase = await createServerSupabaseClient();
+    const user = authUser;
     const { createServiceRoleClient } = await import("@/lib/supabase/service-role");
     const admin = createServiceRoleClient();
 

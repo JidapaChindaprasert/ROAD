@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { ReportSummary } from "@/features/reports/types";
-import { Plus, Minus, RotateCcw, MapPin, Sparkles } from "lucide-react";
+import { Plus, Minus, RotateCcw, MapPin } from "lucide-react";
 
 export interface DemoCityMapProps {
   reports: ReportSummary[];
@@ -134,9 +134,9 @@ export function DemoCityMap({
     >
       {/* Top Left Badge (Responsive: won't overlap zoom controls on phone) */}
       <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 glass-panel px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl border border-border flex items-center gap-1.5 shadow-2xs max-w-[calc(100%-110px)]">
-        <Sparkles className="h-3.5 w-3.5 text-brand shrink-0" />
+        <MapPin className="h-3.5 w-3.5 text-brand shrink-0" />
         <span className="text-xs font-bold text-text-primary truncate">
-          <span className="hidden sm:inline">Demo City Map — </span>Bangkok Map
+          Bangkok Road Map
         </span>
       </div>
 

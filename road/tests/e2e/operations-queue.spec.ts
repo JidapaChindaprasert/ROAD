@@ -4,9 +4,9 @@ test.describe("Municipal Staff Operations Console", () => {
   test("views incident triage queue, filters by status, and updates incident lifecycle", async ({ page }) => {
     await page.goto("/operations");
 
-    // Verify operations header and live status badge
+    // Verify operations header
     await expect(page.getByText("Municipal Road Maintenance Queue")).toBeVisible();
-    await expect(page.getByText("Live Sync")).toBeVisible();
+    await expect(page.getByText("Staff Operations Console")).toBeVisible();
 
     // Verify filter tabs
     await expect(page.getByRole("button", { name: "all" })).toBeVisible();

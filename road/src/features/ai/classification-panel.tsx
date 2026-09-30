@@ -4,7 +4,7 @@ import * as React from "react";
 import { AIAnalysisResult } from "../reports/types";
 import { Badge } from "@/components/ui/badge";
 import { DAMAGE_CATEGORY_CONFIG } from "../reports/status-machine";
-import { Sparkles, AlertCircle, CheckCircle2, RefreshCw, HelpCircle, Loader2 } from "lucide-react";
+import { Tag, AlertCircle, RefreshCw, HelpCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export interface ClassificationPanelProps {
@@ -34,10 +34,10 @@ export function ClassificationPanel({
         </div>
         <div>
           <h4 className="text-sm font-semibold text-text-primary flex items-center gap-1.5">
-            <span>AI Road Damage Analysis in progress</span>
+            <span>Analyzing road damage</span>
           </h4>
           <p className="text-xs text-text-secondary mt-0.5">
-            Extracting features with Roboflow vision model...
+            Determining damage category...
           </p>
         </div>
       </div>
@@ -53,10 +53,10 @@ export function ClassificationPanel({
           </div>
           <div>
             <h4 className="text-sm font-semibold text-text-primary">
-              AI Analysis Unavailable
+              Classification Unavailable
             </h4>
             <p className="text-xs text-text-secondary mt-0.5">
-              {error || "AI could not process this image. You can still submit this report."}
+              {error || "Could not detect damage category. You can still submit this report."}
             </p>
           </div>
         </div>
@@ -82,21 +82,12 @@ export function ClassificationPanel({
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
           <div className="h-7 w-7 rounded-lg bg-brand-soft text-brand flex items-center justify-center">
-            <Sparkles className="h-4 w-4" />
+            <Tag className="h-4 w-4" />
           </div>
           <span className="text-xs font-bold uppercase tracking-wider text-brand">
-            {analysis.isDemo ? "Roboflow Demo Detection" : "Roboflow Model Detection"}
+            Damage Classification
           </span>
         </div>
-
-        {analysis.confidenceScore && (
-          <div className="flex items-center gap-1 text-xs text-text-secondary">
-            <span>Score:</span>
-            <span className="font-bold text-brand tabular-nums">
-              {(analysis.confidenceScore * 100).toFixed(0)}%
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Primary Category & Summary */}
@@ -118,7 +109,7 @@ export function ClassificationPanel({
           <div className="flex flex-wrap gap-1.5 shrink-0">
             {analysis.labels.map((lbl, idx) => (
               <Badge key={idx} variant="outline" size="sm" className="text-[11px]">
-                {lbl.category}: {lbl.score ? `${(lbl.score * 100).toFixed(0)}%` : ""}
+                {lbl.category}
               </Badge>
             ))}
           </div>
@@ -129,7 +120,7 @@ export function ClassificationPanel({
       <div className="flex items-center justify-between mt-3 text-[11px] text-text-secondary pt-2 border-t border-border-subtle">
         <div className="flex items-center gap-1">
           <HelpCircle className="h-3 w-3 text-text-muted" />
-          <span>AI estimate. Not a certified engineering diagnosis.</span>
+          <span>Preliminary classification. Verified on-site by municipal engineering crews.</span>
         </div>
 
         {onFlagIncorrect && (

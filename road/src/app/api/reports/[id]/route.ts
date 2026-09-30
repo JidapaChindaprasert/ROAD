@@ -3,6 +3,7 @@ import { isDemoMode } from "@/lib/env";
 import { demoReportRepository } from "@/lib/repositories/demo-report-repository";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { mapDbReportToDetail, DbReportRow } from "@/lib/supabase/dto-mappers";
+import { getAuthenticatedUser } from "@/lib/auth/server-auth";
 
 export async function GET(
   req: NextRequest,
@@ -17,6 +18,8 @@ export async function GET(
       );
     }
 
+    const authUser = await getAuthenticatedUser(req);
+
     // Demo Mode Handler
     if (isDemoMode) {
       const demoReport = await demoReportRepository.getPublicReport(id);
@@ -26,7 +29,21 @@ export async function GET(
           { status: 404 }
         );
       }
-      return NextResponse.json({ data: demoReport });
+
+      const isPrivileged = Boolean(
+        (authUser && demoReport.ownerId && authUser.id === demoReport.ownerId) ||
+        authUser?.isStaff
+      );
+
+      // Privacy scoping: if viewer is neither author nor staff, hide exact location
+      const scopedReport = isPrivileged
+        ? demoReport
+        : {
+            ...demoReport,
+            exactLocation: undefined,
+          };
+
+      return NextResponse.json({ data: scopedReport });
     }
 
     // Production Mode with Supabase
@@ -91,6 +108,8 @@ export async function GET(
     };
 
     const detail = mapDbReportToDetail(reportRow, {
+      currentUserId: authUser?.id,
+      isStaff: authUser?.isStaff,
       events: events || [],
       media: media || [],
       aiAnalysis: aiList?.[0] || null,

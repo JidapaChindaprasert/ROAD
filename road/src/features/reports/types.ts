@@ -151,6 +151,7 @@ export interface CreateReportDraftInput {
 export interface SubmitReportInput {
   draftId: string;
   idempotencyKey: string;
+  ownerId?: string;
   category?: DamageCategory;
   description?: string;
   locationContext?: string;

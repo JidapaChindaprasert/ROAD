@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ReportDetail } from "../types";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Map, Share2, Sparkles, ArrowRight } from "lucide-react";
+import { CheckCircle2, Map, Share2, ArrowRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { formatCoordinates } from "@/lib/utils";
 import { toast } from "sonner";
@@ -79,8 +79,7 @@ export function SubmissionSuccess({ report, onResetWizard }: SubmissionSuccessPr
         </div>
 
         {report.aiAnalysis && (
-          <div className="p-2.5 rounded-xl bg-brand-soft/50 border border-brand/20 flex items-center gap-2 text-xs">
-            <Sparkles className="h-4 w-4 text-brand shrink-0" />
+          <div className="p-2.5 rounded-xl bg-surface-muted border border-border-subtle flex items-center gap-2 text-xs">
             <span className="text-text-secondary truncate">
               {report.aiAnalysis.summary}
             </span>
@@ -92,7 +91,7 @@ export function SubmissionSuccess({ report, onResetWizard }: SubmissionSuccessPr
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
         <Link href={`/reports/${report.id}`} className="w-full sm:w-auto">
           <Button variant="primary" className="w-full gap-2 font-semibold">
-            <span>View Public Audit & Tracking</span>
+            <span>View Report & Tracking</span>
             <ArrowRight className="h-4 w-4" />
           </Button>
         </Link>

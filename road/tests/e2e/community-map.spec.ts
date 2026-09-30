@@ -44,7 +44,7 @@ test.describe("Community Map & Incidents Explorer", () => {
       await viewButtons.first().click();
       await expect(page).toHaveURL(/\/reports\//);
       await expect(page.getByText("Repair Progress & Event History")).toBeVisible();
-      await expect(page.getByText("Simulate Next Update")).toBeVisible();
+      await expect(page.getByText("หนังสือราชการ (PDF)")).toBeVisible();
     }
   });
 });

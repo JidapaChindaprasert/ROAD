@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { isDemoMode } from "@/lib/env";
-import { Sparkles, Database, RotateCcw } from "lucide-react";
+import { Database, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -32,17 +32,7 @@ export function ModeIndicator({ onResetDemo, className }: ModeIndicatorProps) {
   };
 
   if (!isDemoMode) {
-    return (
-      <div
-        className={cn(
-          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium",
-          className
-        )}
-      >
-        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span>Live Production</span>
-      </div>
-    );
+    return null;
   }
 
   return (
@@ -53,8 +43,8 @@ export function ModeIndicator({ onResetDemo, className }: ModeIndicatorProps) {
       )}
     >
       <div className="flex items-center gap-1">
-        <Sparkles className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-        <span>Demo Mode</span>
+        <Database className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+        <span>Demo Data</span>
       </div>
       <span className="text-amber-300">|</span>
       <button
@@ -65,7 +55,7 @@ export function ModeIndicator({ onResetDemo, className }: ModeIndicatorProps) {
         title="Reset demo reports back to initial Bangkok fixtures"
       >
         <RotateCcw className={`h-3 w-3 ${isResetting ? "animate-spin" : ""}`} />
-        <span>Reset data</span>
+        <span>Reset</span>
       </button>
     </div>
   );

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PlusCircle, MapPin, Calendar, ArrowRight, FileText, Sparkles } from "lucide-react";
+import { PlusCircle, MapPin, Calendar, ArrowRight, FileText } from "lucide-react";
 import { STATUS_DISPLAY_CONFIG, DAMAGE_CATEGORY_CONFIG } from "@/features/reports/status-machine";
 import { formatRelativeTime } from "@/lib/utils";
 import {
@@ -18,8 +18,11 @@ import {
   DEFAULT_ROAD_DAMAGE_IMAGE,
 } from "@/lib/constants/fallback-images";
 
+import { useAuth } from "@/features/auth/use-auth";
+
 export default function MyReportsPage() {
   const repository = useReportRepository();
+  const { user, isAuthenticated, openAuthModal } = useAuth();
   const [reports, setReports] = React.useState<ReportDetail[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
 
@@ -28,7 +31,10 @@ export default function MyReportsPage() {
     repository
       .listMyReports()
       .then((data) => {
-        if (isMounted) setReports(data);
+        if (isMounted) {
+          // If authenticated as citizen, scope data or display user reports
+          setReports(data);
+        }
       })
       .finally(() => {
         if (isMounted) setIsLoading(false);
@@ -37,26 +43,48 @@ export default function MyReportsPage() {
     return () => {
       isMounted = false;
     };
-  }, [repository]);
+  }, [repository, user?.id]);
 
   return (
     <PageContainer size="lg">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">
-            My Submitted Reports
-          </h1>
-          <p className="text-sm text-text-secondary mt-1">
-            Track road hazard reports and follow repair progress in real-time.
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">
+              My Submitted Reports
+            </h1>
+            {user && (
+              <Badge variant="outline" size="sm" className="font-mono text-xs">
+                {user.displayName}
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm text-text-secondary">
+            {isAuthenticated && user
+              ? `Verified reports filed under ${user.email}. Follow repair progress in real-time.`
+              : "Track road hazard reports and follow repair progress in real-time."}
           </p>
         </div>
 
-        <Link href="/report/new">
-          <Button variant="primary" className="gap-2 font-bold shadow-sm">
-            <PlusCircle className="h-4 w-4" />
-            <span>Report Road Damage</span>
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {!isAuthenticated && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openAuthModal("signin")}
+              className="text-xs font-semibold"
+            >
+              Sign In to Sync
+            </Button>
+          )}
+
+          <Link href="/report/new">
+            <Button variant="primary" className="gap-2 font-bold shadow-sm">
+              <PlusCircle className="h-4 w-4" />
+              <span>Report Road Damage</span>
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {isLoading ? (
@@ -126,12 +154,6 @@ export default function MyReportsPage() {
                       <Badge variant="outline" size="sm" className="text-[11px]">
                         {categoryMeta.label}
                       </Badge>
-                      {report.aiAnalysis && (
-                        <span className="text-[11px] text-brand font-medium flex items-center gap-1">
-                          <Sparkles className="h-3 w-3" />
-                          AI Classified
-                        </span>
-                      )}
                     </div>
                   </div>
 

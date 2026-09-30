@@ -86,6 +86,7 @@ export function createDemoReport(input: SubmitReportInput): ReportDetail {
     publicId,
     title,
     category,
+    ownerId: input.ownerId || "demo-user-reporter",
     publicStatus: "reported",
     detailedStatus: "reported",
     publicLatitude: Number(input.location.latitude.toFixed(4)),

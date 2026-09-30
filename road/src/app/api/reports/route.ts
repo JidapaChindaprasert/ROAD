@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { demoReportRepository } from "@/lib/repositories/demo-report-repository";
 import { ReportDetail, DamageCategory, LocationSource, MediaItem, AIAnalysisResult } from "@/features/reports/types";
+import { getAuthenticatedUser } from "@/lib/auth/server-auth";
 
 const submitReportSchema = z.object({
   draftId: z.string().optional(),
@@ -125,9 +126,11 @@ export async function POST(req: NextRequest) {
 
     // Handle Demo Mode
     if (isDemoMode) {
+      const authUser = await getAuthenticatedUser(req);
       const demoResult = await demoReportRepository.submitReport({
         draftId: input.draftId || `draft-${Date.now()}`,
         idempotencyKey: input.idempotencyKey || `idemp-${Date.now()}`,
+        ownerId: authUser?.id || "demo-user-reporter",
         category: input.category as DamageCategory,
         description: input.description,
         locationContext: input.locationContext,
@@ -156,16 +159,19 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Identify or authenticate user
-    let userId: string | null = null;
+    const authUser = await getAuthenticatedUser(req);
+    let userId: string | null = authUser?.id || null;
 
-    try {
-      const serverSupabase = await createServerSupabaseClient();
-      const { data: { user } } = await serverSupabase.auth.getUser();
-      if (user) {
-        userId = user.id;
+    if (!userId) {
+      try {
+        const serverSupabase = await createServerSupabaseClient();
+        const { data: { user } } = await serverSupabase.auth.getUser();
+        if (user) {
+          userId = user.id;
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
     }
 
     if (!userId) {

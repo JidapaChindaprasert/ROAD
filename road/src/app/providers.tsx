@@ -6,22 +6,28 @@ import { createQueryClient } from "@/lib/query-client";
 import { RepositoryProvider } from "@/lib/repositories/repository-provider";
 import { Toaster } from "sonner";
 
+import { AuthProvider } from "@/features/auth/use-auth";
+import { AuthModal } from "@/features/auth/components/auth-modal";
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = React.useState(() => createQueryClient());
 
   return (
     <QueryClientProvider client={queryClient}>
-      <RepositoryProvider>
-        {children}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            className: "rounded-2xl font-sans text-sm border-border bg-surface text-text-primary shadow-lg",
-          }}
-          richColors
-          closeButton
-        />
-      </RepositoryProvider>
+      <AuthProvider>
+        <RepositoryProvider>
+          {children}
+          <AuthModal />
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              className: "rounded-2xl font-sans text-sm border-border bg-surface text-text-primary shadow-lg",
+            }}
+            richColors
+            closeButton
+          />
+        </RepositoryProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

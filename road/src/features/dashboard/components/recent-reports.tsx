@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ReportSummary } from "@/features/reports/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, ArrowRight, Sparkles, Clock } from "lucide-react";
+import { MapPin, ArrowRight, Clock } from "lucide-react";
 import { STATUS_DISPLAY_CONFIG, DAMAGE_CATEGORY_CONFIG } from "@/features/reports/status-machine";
 import { formatRelativeTime } from "@/lib/utils";
 import {

@@ -160,6 +160,23 @@
   - **Public ID & UUID Lookup Compatibility**:
     - Enhanced `getPublicReport` and `/api/operations/reports/[id]/transition` to resolve reports by either UUID or human-readable tracking ID (`REP-...`), eliminating PostgreSQL `22P02 invalid input syntax for type uuid` errors.
 
+### Milestone 7 — User Authentication, Role Verification & Back-office Staff Management ✅
+- **Public Registration Role Isolation**:
+  - Public registration (`POST /api/auth/sign-up`) is strictly locked to citizen `reporter` role; self-elevation to staff or admin is prevented at both schema validation and database trigger levels.
+  - Removed role pickers from citizen registration forms; clearly marked as citizen account for incident submission and tracking.
+- **Back-office Staff & Admin Management ("หลังบ้าน")**:
+  - **Admin API (`GET /api/admin/users`, `POST /api/admin/users`)**: Enforces `requireRole(['admin'])` server boundary. Allows verified district administrators to view user directories, promote citizens to maintenance staff (`staff`) or administrators (`admin`), and revoke operational permissions.
+  - **Admin Back-office Console (`/admin`)**: Executive Thai & English dashboard for user and staff access control with user search, role filtering, and 1-click role mutation controls.
+  - Navigation links to Admin Console and Operations Console are conditionally displayed only to users with verified `admin` or `staff` permissions.
+- **Privacy & Exact Coordinate Scoping (SKILL.md §13.1)**:
+  - Exact GPS coordinates (`report.exactLocation`) are strictly restricted on both server API (`/api/reports/[id]`) and UI views to the report owner (`user.id === report.ownerId`) and authorized municipal staff (`isStaff`).
+  - General public visitors receive snapped/generalized coordinates (~40m grid) with transparent privacy disclosure indicators.
+  - Reports in detail view display verified badges: "รายงานของคุณ (Author)" for the creator and "เจ้าหน้าที่ปฏิบัติการ (Staff View)" for crew members.
+- **Database Triggers & Migration**:
+  - `20260930000002_user_auth_and_roles_triggers.sql`: Automatically creates `public.profiles` and assigns default `reporter` role on `auth.users` insert. Includes secure PostgreSQL function `public.assign_user_role(...)`.
+- **Mode Boundary Preservation**:
+  - Interactive role switcher is strictly gated to demo mode (`isDemoMode`). In production mode, role switching is forbidden and disabled, with direct database verification via `public.user_roles`.
+
 ## Demo Mode
 - Run with `NEXT_PUBLIC_APP_MODE=demo` (default in `.env.local`).
 - Requires **no external credentials**.

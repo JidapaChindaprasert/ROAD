@@ -10,21 +10,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import {
   MapPin,
-  Sparkles,
   ArrowLeft,
   Share2,
-  Play,
   Shield,
   FileText,
+  User,
+  Lock,
 } from "lucide-react";
 import { DAMAGE_CATEGORY_CONFIG, STATUS_DISPLAY_CONFIG } from "../status-machine";
 import { formatDate, formatCoordinates } from "@/lib/utils";
 import { useReportRepository } from "@/lib/repositories/repository-provider";
 import { toast } from "sonner";
 import { ThaiRepairRequestModal } from "./thai-repair-request-modal";
-import { useRealtimeSubscription, broadcastDemoRealtimeEvent } from "@/features/realtime/use-realtime";
-import { LiveStatusBadge } from "@/components/layout/live-status-badge";
+import { useRealtimeSubscription } from "@/features/realtime/use-realtime";
 import { getSafeImageUrl, CATEGORY_FALLBACK_IMAGES, DEFAULT_ROAD_DAMAGE_IMAGE } from "@/lib/constants/fallback-images";
+import { useAuth } from "@/features/auth/use-auth";
 
 export interface ReportDetailViewProps {
   initialReport: ReportDetail;
@@ -32,10 +32,13 @@ export interface ReportDetailViewProps {
 
 export function ReportDetailView({ initialReport }: ReportDetailViewProps) {
   const repository = useReportRepository();
+  const { user, isStaff } = useAuth();
   const [report, setReport] = React.useState<ReportDetail>(initialReport);
-  const [isSimulating, setIsSimulating] = React.useState(false);
   const [activeMediaIndex, setActiveMediaIndex] = React.useState(0);
   const [isGovFormOpen, setIsGovFormOpen] = React.useState(false);
+
+  const isOwner = Boolean(user && report.ownerId && user.id === report.ownerId);
+  const canViewExactLocation = Boolean(isOwner || isStaff);
 
   const reportMedia = report.media || [];
   const reportEvents = report.events || [];
@@ -48,7 +51,7 @@ export function ReportDetailView({ initialReport }: ReportDetailViewProps) {
     STATUS_DISPLAY_CONFIG[report.detailedStatus] || STATUS_DISPLAY_CONFIG.reported;
 
   // Realtime subscription for instant multi-session sync
-  const { connectionStatus } = useRealtimeSubscription({
+  useRealtimeSubscription({
     channelName: `report:${report.id}`,
     onEvent: (event) => {
       if (event.reportId === report.id || event.publicId === report.publicId) {
@@ -61,37 +64,6 @@ export function ReportDetailView({ initialReport }: ReportDetailViewProps) {
       }
     },
   });
-
-  const handleSimulateUpdate = async () => {
-    if (!repository.simulateNextUpdate) {
-      toast.info("Status simulation is available in demo mode.");
-      return;
-    }
-
-    setIsSimulating(true);
-    try {
-      const updated = await repository.simulateNextUpdate(report.id);
-      setReport(updated);
-
-      // Broadcast live event to all other tabs/windows
-      broadcastDemoRealtimeEvent({
-        type: "STATUS_TRANSITIONED",
-        reportId: updated.id,
-        publicId: updated.publicId,
-        status: updated.detailedStatus,
-        timestamp: new Date().toISOString(),
-      });
-
-      toast.success(
-        `Report updated to: ${STATUS_DISPLAY_CONFIG[updated.detailedStatus]?.publicLabel || updated.detailedStatus}`
-      );
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to simulate lifecycle transition.";
-      toast.error(message);
-    } finally {
-      setIsSimulating(false);
-    }
-  };
 
   const handleShare = () => {
     if (typeof window !== "undefined" && navigator.clipboard) {
@@ -126,19 +98,7 @@ export function ReportDetailView({ initialReport }: ReportDetailViewProps) {
             <span>หนังสือราชการ (PDF)</span>
           </Button>
 
-          {/* Simulate next update button (Demo Mode) */}
-          <Button
-            type="button"
-            onClick={handleSimulateUpdate}
-            variant="soft-brand"
-            size="sm"
-            isLoading={isSimulating}
-            className="text-xs font-bold gap-1.5"
-            title="Advance this report to the next operational lifecycle status"
-          >
-            <Play className="h-3.5 w-3.5 fill-current" />
-            <span>Simulate Next Update</span>
-          </Button>
+
 
           <Button
             type="button"
@@ -161,7 +121,6 @@ export function ReportDetailView({ initialReport }: ReportDetailViewProps) {
               <span className="font-mono text-sm font-bold text-brand bg-brand-soft px-2.5 py-0.5 rounded-lg">
                 {report.publicId}
               </span>
-              <LiveStatusBadge status={connectionStatus} />
               <span className="text-xs text-text-muted">
                 Created {formatDate(report.createdAt)}
               </span>
@@ -198,18 +157,47 @@ export function ReportDetailView({ initialReport }: ReportDetailViewProps) {
           )}
 
           <div>
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              {isOwner && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand text-white shadow-xs">
+                  <User className="h-3 w-3" />
+                  <span>รายงานของคุณ (Author)</span>
+                </span>
+              )}
+              {isStaff && !isOwner && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                  <Shield className="h-3 w-3 text-amber-700" />
+                  <span>เจ้าหน้าที่ปฏิบัติการ (Staff View)</span>
+                </span>
+              )}
+            </div>
+
             <h1 className="text-2xl sm:text-3xl font-extrabold text-text-primary tracking-tight">
               {report.title}
             </h1>
-            <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-text-secondary">
-              <div className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 text-brand" />
-                <span className="font-medium text-text-primary">
+            <div className="flex flex-wrap items-center gap-4 mt-2.5 text-xs text-text-secondary">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-brand shrink-0" />
+                <span className="font-semibold text-text-primary">
                   {report.localityLabel || "Bangkok Metro Area"}
                 </span>
-                <span className="text-text-muted">
-                  ({formatCoordinates(publicLat, publicLng)})
-                </span>
+
+                {canViewExactLocation && report.exactLocation ? (
+                  <span className="inline-flex items-center gap-1 font-mono text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200" title="พิกัด GPS แม่นยำมองเห็นเฉพาะผู้รายงานและเจ้าหน้าที่">
+                    GPS แม่นยำ: {report.exactLocation.latitude.toFixed(5)}, {report.exactLocation.longitude.toFixed(5)}
+                    {report.exactLocation.accuracyMeters != null && ` (±${report.exactLocation.accuracyMeters}m)`}
+                  </span>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-text-muted font-mono">
+                      ({formatCoordinates(publicLat, publicLng)})
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] text-text-muted bg-surface-muted px-2 py-0.5 rounded border border-border-subtle" title="พิกัดสาธารณะถูก Snap ประมาณ 40m เพื่อปกป้องความเป็นส่วนตัวของผู้แจ้ง">
+                      <Lock className="w-2.5 h-2.5 text-text-muted" />
+                      <span>พิกัดสาธารณะ Snap ~40m</span>
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-1">
                 <Badge variant="outline" size="sm">
@@ -259,14 +247,6 @@ export function ReportDetailView({ initialReport }: ReportDetailViewProps) {
                         }
                       }}
                     />
-                    {report.aiAnalysis?.labels && report.aiAnalysis.labels.length > 0 && (
-                      <div className="absolute top-3 left-3">
-                        <Badge variant="brand" size="sm" className="bg-surface/90 backdrop-blur-xs">
-                          <Sparkles className="h-3 w-3 mr-1" />
-                          Roboflow Vision Detected
-                        </Badge>
-                      </div>
-                    )}
                   </div>
 
                   {reportMedia.length > 1 && (

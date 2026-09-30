@@ -12,6 +12,7 @@ import { CityMap } from "@/features/map/components/city-map";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRouter } from "next/navigation";
 import {
   PlusCircle,
   Map,
@@ -19,11 +20,11 @@ import {
   ShieldCheck,
   AlertTriangle,
   ArrowRight,
-  Sparkles,
   CheckCircle2,
 } from "lucide-react";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const repository = useReportRepository();
   const [reports, setReports] = React.useState<ReportSummary[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -92,7 +93,7 @@ export default function DashboardPage() {
                 <CityMap
                   reports={reports}
                   onSelectReport={(rep) => {
-                    window.location.href = `/reports/${rep.id}`;
+                    router.push(`/reports/${rep.id}`);
                   }}
                   className="h-[380px]"
                 />
@@ -132,7 +133,7 @@ export default function DashboardPage() {
               <div className="space-y-2 text-xs text-text-secondary">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-brand shrink-0" />
-                  <span>Automatic Roboflow vision damage detection</span>
+                  <span>Photo upload with category detection</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-brand shrink-0" />
@@ -140,7 +141,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-brand shrink-0" />
-                  <span>Live tracking until road is fixed</span>
+                  <span>Track status until road is fixed</span>
                 </div>
               </div>
 

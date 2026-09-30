@@ -1,6 +1,6 @@
 import * as React from "react";
 import Link from "next/link";
-import { PlusCircle, Map, ShieldCheck, Sparkles, ArrowRight } from "lucide-react";
+import { PlusCircle, Map, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function DashboardHero() {
@@ -13,7 +13,7 @@ export function DashboardHero() {
       <div className="relative z-10 max-w-3xl space-y-5">
         {/* Eyebrow Badge */}
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-soft border border-brand/20 text-brand text-xs font-bold uppercase tracking-wider shadow-2xs">
-          <Sparkles className="h-3.5 w-3.5" />
+          <MapPin className="h-3.5 w-3.5" />
           <span>Bangkok Municipal Road Damage Tracker</span>
         </div>
 
@@ -24,7 +24,7 @@ export function DashboardHero() {
 
         {/* Subtitle / Core Promise */}
         <p className="text-base sm:text-lg md:text-xl text-text-secondary leading-relaxed font-normal">
-          Spot a pothole, road crack, or flood hazard? Drop a photo and let our Roboflow AI classify the damage. Follow real-time repairs from report to resolution.
+          Spot a pothole, road crack, or flood hazard? Submit a photo and location to notify municipal road crews and follow repairs from report to resolution.
         </p>
 
         {/* CTA Buttons */}
@@ -39,15 +39,9 @@ export function DashboardHero() {
           <Link href="/map" className="w-full sm:w-auto">
             <Button size="lg" variant="outline" className="w-full sm:w-auto font-semibold gap-2 text-base bg-surface/80 backdrop-blur-xs justify-center">
               <Map className="h-5 w-5 text-brand" />
-              <span>Open Live Map</span>
+              <span>Open Map</span>
             </Button>
           </Link>
-        </div>
-
-        {/* Small trust note */}
-        <div className="flex items-center gap-2 pt-3 text-xs text-text-muted">
-          <ShieldCheck className="h-4 w-4 text-brand shrink-0" />
-          <span>Transparent public audit trail • GPS-verified • Roboflow vision assistance</span>
         </div>
       </div>
     </div>

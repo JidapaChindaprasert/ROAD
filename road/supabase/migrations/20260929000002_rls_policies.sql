@@ -94,11 +94,10 @@ TO authenticated
 USING (auth.uid() = owner_id);
 
 -- 7. Reports Policies
--- Note: Public clients view reports through public_report_features to prevent GPS/PII leaks
-CREATE POLICY "Owners can view own reports"
+CREATE POLICY "Anyone can view public reports"
 ON public.reports FOR SELECT
-TO authenticated
-USING (auth.uid() = owner_id);
+TO anon, authenticated
+USING (visibility = 'public');
 
 CREATE POLICY "Staff can view all reports"
 ON public.reports FOR SELECT
@@ -124,10 +123,16 @@ TO anon, authenticated
 USING (true);
 
 -- 9. Report Media Policies
-CREATE POLICY "Owners can view own media"
+CREATE POLICY "Anyone can view media for public reports"
 ON public.report_media FOR SELECT
-TO authenticated
-USING (auth.uid() = owner_id);
+TO anon, authenticated
+USING (
+  auth.uid() = owner_id 
+  OR EXISTS (
+    SELECT 1 FROM public.reports 
+    WHERE reports.id = report_media.report_id AND reports.visibility = 'public'
+  )
+);
 
 CREATE POLICY "Staff can view all report media"
 ON public.report_media FOR SELECT
@@ -140,13 +145,13 @@ TO authenticated
 WITH CHECK (auth.uid() = owner_id);
 
 -- 10. AI Analyses Policies
-CREATE POLICY "Owners can view AI analysis for own reports"
+CREATE POLICY "Anyone can view AI analysis for public reports"
 ON public.ai_analyses FOR SELECT
-TO authenticated
+TO anon, authenticated
 USING (
   EXISTS (
     SELECT 1 FROM public.reports 
-    WHERE reports.id = ai_analyses.report_id AND reports.owner_id = auth.uid()
+    WHERE reports.id = ai_analyses.report_id AND reports.visibility = 'public'
   ) OR
   EXISTS (
     SELECT 1 FROM public.report_drafts 

@@ -5,6 +5,7 @@ export const SEED_REPORTS: ReportDetail[] = [
   {
     id: "rep-001",
     publicId: "RD-2026-0812",
+    ownerId: "demo-user-reporter",
     title: "Deep Asphalt Pothole on Sukhumvit Soi 21",
     category: "pothole",
     publicStatus: "repairing",
@@ -125,6 +126,7 @@ export const SEED_REPORTS: ReportDetail[] = [
   {
     id: "rep-002",
     publicId: "RD-2026-0819",
+    ownerId: "demo-user-reporter",
     title: "Alligator Cracking on Rama IV Road",
     category: "crack",
     publicStatus: "reported",

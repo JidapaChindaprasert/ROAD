@@ -12,7 +12,6 @@ import {
   Calendar,
   Navigation,
   Share2,
-  Sparkles,
   CheckCircle2,
   Clock,
   ExternalLink,

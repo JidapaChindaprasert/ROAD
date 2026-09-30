@@ -1,8 +1,10 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { ReportDetail, ReportStatus, OperationalPriority } from "@/features/reports/types";
 import { useReportRepository } from "@/lib/repositories/repository-provider";
+import { useAuth } from "@/features/auth/use-auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -11,7 +13,6 @@ import { Input, Textarea } from "@/components/ui/input";
 import {
   ShieldAlert,
   MapPin,
-  Sparkles,
   ArrowRight,
   Filter,
   CheckCircle2,
@@ -19,6 +20,10 @@ import {
   Clock,
   UserCheck,
   FileText,
+  Lock,
+  User,
+  LogIn,
+  RefreshCw,
 } from "lucide-react";
 import {
   STATUS_DISPLAY_CONFIG,
@@ -29,11 +34,12 @@ import { formatDate, formatRelativeTime, formatCoordinates } from "@/lib/utils";
 import { toast } from "sonner";
 import { ThaiRepairRequestModal } from "@/features/reports/components/thai-repair-request-modal";
 import { useRealtimeSubscription, broadcastDemoRealtimeEvent } from "@/features/realtime/use-realtime";
-import { LiveStatusBadge } from "@/components/layout/live-status-badge";
 import { getSafeImageUrl, CATEGORY_FALLBACK_IMAGES, DEFAULT_ROAD_DAMAGE_IMAGE } from "@/lib/constants/fallback-images";
+import { isDemoMode } from "@/lib/env";
 
 export function ReportQueue() {
   const repository = useReportRepository();
+  const { user, isStaff, isAdmin, openAuthModal, switchDemoRole } = useAuth();
   const [reports, setReports] = React.useState<ReportDetail[]>([]);
   const [selectedStatus, setSelectedStatus] = React.useState<string>("all");
   const [activeReport, setActiveReport] = React.useState<ReportDetail | null>(null);
@@ -56,7 +62,7 @@ export function ReportQueue() {
   }, [loadReports]);
 
   // Realtime subscription for multi-session live updates
-  const { connectionStatus } = useRealtimeSubscription({
+  useRealtimeSubscription({
     channelName: "operations:reports",
     onEvent: (event) => {
       loadReports();
@@ -138,6 +144,67 @@ export function ReportQueue() {
     }
   };
 
+  // Enforce staff/admin role verification
+  if (!isStaff) {
+    return (
+      <div className="py-12 max-w-xl mx-auto space-y-6 text-center">
+        <div className="h-16 w-16 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto border border-amber-200 shadow-xs">
+          <Lock className="h-8 w-8" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-black text-text-primary tracking-tight">Staff Authorization Required</h2>
+          <p className="text-sm text-text-secondary leading-relaxed">
+            The municipal maintenance queue is restricted to authorized road maintenance crews and district engineers.
+            {user ? (
+              <span className="block mt-1">
+                You are currently authenticated as <strong>{user.displayName}</strong> with role{" "}
+                <span className="font-mono uppercase font-bold text-brand bg-brand-soft px-1.5 py-0.5 rounded">
+                  {user.role}
+                </span>.
+              </span>
+            ) : (
+              <span className="block mt-1">
+                Please sign in with your verified municipal staff credentials.
+              </span>
+            )}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          {isDemoMode ? (
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => openAuthModal("switch_role")}
+              className="gap-2 font-bold"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>Switch Role to Staff (Demo)</span>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => openAuthModal("signin")}
+              className="gap-2 font-bold"
+            >
+              <LogIn className="h-4 w-4" />
+              <span>Staff Sign In</span>
+            </Button>
+          )}
+
+          <Link href="/map">
+            <Button variant="ghost">Back to Map</Button>
+          </Link>
+        </div>
+        {!isDemoMode && (
+          <p className="text-xs text-text-muted mt-2">
+            * สิทธิ์เจ้าหน้าที่ปฏิบัติการต้องได้รับการแต่งตั้งโดยผู้ดูแลระบบผ่านระบบหลังบ้าน (Admin Console)
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Ops Header Banner */}
@@ -148,13 +215,18 @@ export function ReportQueue() {
               <ShieldAlert className="h-3.5 w-3.5" />
               <span>Staff Operations Console</span>
             </div>
-            <LiveStatusBadge status={connectionStatus} />
+            {user && (
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-xs">
+                <User className="h-3 w-3 text-amber-400" />
+                <span>Operator: <strong>{user.displayName}</strong> ({user.role.toUpperCase()})</span>
+              </div>
+            )}
           </div>
           <h2 className="text-2xl font-bold tracking-tight">
             Municipal Road Maintenance Queue
           </h2>
           <p className="text-xs text-slate-400 max-w-xl">
-            Inspect incident triage, review Roboflow vision detections, assign engineering crews, and update public repair timelines.
+            Inspect incident triage, review reported road hazards, assign engineering crews, and update repair timelines.
           </p>
         </div>
 
@@ -246,16 +318,6 @@ export function ReportQueue() {
                       <span>•</span>
                       <span>{formatRelativeTime(report.createdAt)}</span>
                     </div>
-
-                    {report.aiAnalysis && (
-                      <div className="text-xs text-brand font-medium flex items-center gap-1 mt-1">
-                        <Sparkles className="h-3 w-3" />
-                        <span>
-                          AI Model Score: {(report.aiAnalysis.confidenceScore! * 100).toFixed(0)}% •{" "}
-                          {report.aiAnalysis.summary}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -289,7 +351,7 @@ export function ReportQueue() {
 
                     <a href={`/reports/${report.id}`} target="_blank" rel="noreferrer">
                       <Button variant="outline" size="sm" className="text-xs">
-                        Inspect Public Audit
+                        View Incident
                       </Button>
                     </a>
                   </div>
