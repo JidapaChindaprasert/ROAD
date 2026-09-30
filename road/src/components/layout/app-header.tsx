@@ -87,13 +87,13 @@ export function AppHeader() {
   return (
     <header ref={headerRef} className="sticky top-0 z-40 w-full glass-panel border-b border-border/80">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
-        {/* Brand / Logo + Tablet Nav Trigger */}
-        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+        {/* Left: Brand / Logo + Mobile/Tablet Menu Button */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Mobile/Tablet Menu Button */}
           <button
             type="button"
             onClick={() => setIsMobileNavOpen((prev) => !prev)}
-            className="lg:hidden p-2 rounded-xl text-text-secondary hover:text-text-primary hover:bg-surface-muted transition-colors shrink-0"
+            className="xl:hidden p-2 rounded-xl text-text-secondary hover:text-text-primary hover:bg-surface-muted transition-colors shrink-0"
             aria-label={isMobileNavOpen ? "Close menu" : "Open menu"}
             aria-expanded={isMobileNavOpen}
           >
@@ -112,39 +112,39 @@ export function AppHeader() {
               <span className="font-bold text-lg tracking-tight text-text-primary leading-none group-hover:text-brand transition-colors whitespace-nowrap">
                 ROAD
               </span>
-              <span className="text-[10px] tracking-wider uppercase font-semibold text-brand whitespace-nowrap hidden xl:block">
+              <span className="text-[10px] tracking-wider uppercase font-semibold text-brand whitespace-nowrap hidden 2xl:block">
                 Civic Damage Intel
               </span>
             </div>
           </Link>
-
-          {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center gap-1 ml-2 xl:ml-4" aria-label="Main Navigation">
-            {navLinks.map((link) => {
-              const isActive = pathname === link.href;
-              const Icon = link.icon;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
-                    isActive
-                      ? "bg-brand-soft text-brand font-bold"
-                      : "text-text-secondary hover:text-text-primary hover:bg-surface-muted"
-                  )}
-                >
-                  <Icon className="h-4 w-4 shrink-0" />
-                  {link.label}
-                </Link>
-              );
-            })}
-          </nav>
         </div>
 
+        {/* Center: Desktop Navigation Links (Desktop only: >= 1280px) */}
+        <nav className="hidden xl:flex items-center gap-1 mx-4 shrink min-w-0 overflow-hidden" aria-label="Main Navigation">
+          {navLinks.map((link) => {
+            const isActive = pathname === link.href;
+            const Icon = link.icon;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap shrink-0",
+                  isActive
+                    ? "bg-brand-soft text-brand font-bold"
+                    : "text-text-secondary hover:text-text-primary hover:bg-surface-muted"
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span>{link.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
         {/* Right side controls */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          <ModeIndicator className="hidden xl:inline-flex" />
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 ml-auto">
+          <ModeIndicator className="hidden 2xl:inline-flex" />
 
           {/* User Auth & Role Widget */}
           <div className="relative" ref={menuRef}>
@@ -344,7 +344,7 @@ export function AppHeader() {
 
       {/* Mobile & Tablet Navigation Drawer (Collapsible) */}
       {isMobileNavOpen && (
-        <div className="lg:hidden border-t border-border/80 bg-surface/98 backdrop-blur-xl px-4 py-3 animate-in slide-in-from-top-2 duration-150 space-y-3">
+        <div className="xl:hidden border-t border-border/80 bg-surface/98 backdrop-blur-xl px-4 py-3 animate-in slide-in-from-top-2 duration-150 space-y-3">
           <nav className="flex flex-col gap-1" aria-label="Mobile Navigation Drawer">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
