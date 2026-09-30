@@ -9,8 +9,6 @@ import {
   LayoutDashboard,
   FileText,
   ShieldAlert,
-  User,
-  Shield,
   Users,
   LogIn,
   LogOut,
@@ -19,6 +17,8 @@ import {
   Mail,
   Copy,
   Check,
+  Menu,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModeIndicator } from "./mode-indicator";
@@ -28,10 +28,12 @@ import { isDemoMode } from "@/lib/env";
 
 export function AppHeader() {
   const pathname = usePathname();
-  const { user, role, isStaff, isAdmin, isAuthenticated, openAuthModal, signOut } = useAuth();
+  const { user, isStaff, isAdmin, isAuthenticated, openAuthModal, signOut } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = React.useState(false);
   const [isCopied, setIsCopied] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
+  const headerRef = React.useRef<HTMLElement>(null);
 
   const handleCopyEmail = (emailText: string) => {
     if (!emailText) return;
@@ -40,14 +42,38 @@ export function AppHeader() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  // Close menus on browser back/forward navigation
+  React.useEffect(() => {
+    const handlePopState = () => {
+      setIsMenuOpen(false);
+      setIsMobileNavOpen(false);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  // Close menus on click outside
   React.useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setIsMenuOpen(false);
       }
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setIsMobileNavOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsMenuOpen(false);
+        setIsMobileNavOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   const navLinks = [
@@ -59,10 +85,21 @@ export function AppHeader() {
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full glass-panel border-b border-border/80">
+    <header ref={headerRef} className="sticky top-0 z-40 w-full glass-panel border-b border-border/80">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2 sm:gap-4">
-        {/* Brand / Logo */}
-        <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+        {/* Brand / Logo + Tablet Nav Trigger */}
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          {/* Mobile/Tablet Menu Button */}
+          <button
+            type="button"
+            onClick={() => setIsMobileNavOpen((prev) => !prev)}
+            className="lg:hidden p-2 rounded-xl text-text-secondary hover:text-text-primary hover:bg-surface-muted transition-colors shrink-0"
+            aria-label={isMobileNavOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMobileNavOpen}
+          >
+            {isMobileNavOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+
           <Link
             href="/about"
             className="flex items-center gap-2 sm:gap-2.5 group shrink-0"
@@ -75,14 +112,14 @@ export function AppHeader() {
               <span className="font-bold text-lg tracking-tight text-text-primary leading-none group-hover:text-brand transition-colors whitespace-nowrap">
                 ROAD
               </span>
-              <span className="text-[10px] tracking-wider uppercase font-semibold text-brand whitespace-nowrap hidden sm:block">
+              <span className="text-[10px] tracking-wider uppercase font-semibold text-brand whitespace-nowrap hidden xl:block">
                 Civic Damage Intel
               </span>
             </div>
           </Link>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1 ml-4" aria-label="Main Navigation">
+          <nav className="hidden lg:flex items-center gap-1 ml-2 xl:ml-4" aria-label="Main Navigation">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
               const Icon = link.icon;
@@ -91,9 +128,9 @@ export function AppHeader() {
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    "flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
+                    "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors whitespace-nowrap",
                     isActive
-                      ? "bg-brand-soft text-brand"
+                      ? "bg-brand-soft text-brand font-bold"
                       : "text-text-secondary hover:text-text-primary hover:bg-surface-muted"
                   )}
                 >
@@ -106,8 +143,8 @@ export function AppHeader() {
         </div>
 
         {/* Right side controls */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <ModeIndicator className="hidden lg:inline-flex" />
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          <ModeIndicator className="hidden xl:inline-flex" />
 
           {/* User Auth & Role Widget */}
           <div className="relative" ref={menuRef}>
@@ -115,7 +152,7 @@ export function AppHeader() {
               <button
                 type="button"
                 onClick={() => setIsMenuOpen((prev) => !prev)}
-                className="flex items-center gap-1.5 sm:gap-2.5 p-1 sm:px-2.5 sm:py-1.5 rounded-xl border border-border bg-surface hover:bg-surface-muted transition-all text-left shadow-2xs group max-w-[200px] xs:max-w-[240px] sm:max-w-xs"
+                className="flex items-center gap-1.5 sm:gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-xl border border-border bg-surface hover:bg-surface-muted transition-all text-left shadow-2xs group max-w-[130px] xs:max-w-[160px] sm:max-w-[200px] lg:max-w-xs shrink-0"
                 aria-expanded={isMenuOpen}
                 aria-label="User account menu"
               >
@@ -130,7 +167,7 @@ export function AppHeader() {
                 >
                   {user.displayName.charAt(0).toUpperCase()}
                 </div>
-                <div className="flex flex-col min-w-0 max-w-[95px] xs:max-w-[130px] sm:max-w-[160px] md:max-w-[200px] lg:max-w-[240px]">
+                <div className="flex flex-col min-w-0 max-w-[65px] xs:max-w-[90px] sm:max-w-[120px] md:max-w-[140px] lg:max-w-[180px]">
                   <span className="text-xs font-bold text-text-primary truncate leading-tight group-hover:text-brand transition-colors">
                     {user.displayName || user.email}
                   </span>
@@ -147,7 +184,7 @@ export function AppHeader() {
                       {user.role}
                     </span>
                     {user.email && (
-                      <span className="text-[10px] text-text-muted truncate hidden sm:inline">
+                      <span className="text-[10px] text-text-muted truncate hidden xl:inline">
                         • {user.email}
                       </span>
                     )}
@@ -295,7 +332,7 @@ export function AppHeader() {
             )}
           </div>
 
-          <Link href="/report/new">
+          <Link href="/report/new" className="shrink-0">
             <Button size="sm" className="shadow-sm font-semibold gap-1.5 px-3 py-1.5 whitespace-nowrap">
               <PlusCircle className="h-4 w-4 shrink-0" />
               <span className="hidden sm:inline">Report Damage</span>
@@ -304,6 +341,48 @@ export function AppHeader() {
           </Link>
         </div>
       </div>
+
+      {/* Mobile & Tablet Navigation Drawer (Collapsible) */}
+      {isMobileNavOpen && (
+        <div className="lg:hidden border-t border-border/80 bg-surface/98 backdrop-blur-xl px-4 py-3 animate-in slide-in-from-top-2 duration-150 space-y-3">
+          <nav className="flex flex-col gap-1" aria-label="Mobile Navigation Drawer">
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href;
+              const Icon = link.icon;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setIsMobileNavOpen(false)}
+                  className={cn(
+                    "flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-brand-soft text-brand font-bold"
+                      : "text-text-secondary hover:text-text-primary hover:bg-surface-muted"
+                  )}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span>{link.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="pt-2 border-t border-border/60 flex items-center justify-between">
+            <ModeIndicator />
+            <Link
+              href="/report/new"
+              onClick={() => setIsMobileNavOpen(false)}
+              className="inline-block"
+            >
+              <Button size="sm" className="font-semibold gap-1.5 shadow-sm">
+                <PlusCircle className="h-4 w-4 shrink-0" />
+                <span>Report Damage</span>
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
