@@ -107,18 +107,16 @@ export async function POST(req: NextRequest) {
         { onConflict: "user_id,role" }
       );
 
-    const isConfirmed = Boolean(authData.session || authData.user.confirmed_at);
+    // 3. Auto-confirm user immediately (No email confirmation barrier)
+    await admin.auth.admin.updateUserById(newUserId, {
+      email_confirm: true,
+    });
 
-    if (!isConfirmed) {
-      return NextResponse.json({
-        data: {
-          requiresEmailConfirmation: true,
-          email,
-          displayName,
-          message: "A verification email has been sent. Please check your inbox.",
-        },
-      });
-    }
+    // 4. Automatically sign in to establish active session
+    await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
     const verifiedUser = await getAuthenticatedUser();
     return NextResponse.json({

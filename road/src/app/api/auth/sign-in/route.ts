@@ -4,6 +4,7 @@ import { isDemoMode } from "@/lib/env";
 import { DEMO_USERS, getDemoUser } from "@/features/auth/demo-users";
 import { DEMO_AUTH_COOKIE, getAuthenticatedUser } from "@/lib/auth/server-auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 const signInSchema = z.object({
   email: z.string().email(),
@@ -60,14 +61,37 @@ export async function POST(req: NextRequest) {
     if (authError || !authData.user) {
       const errMsg = authError?.message || "Invalid email or password";
       const isUnconfirmed = errMsg.toLowerCase().includes("email not confirmed");
+
+      // If user had unconfirmed status, auto-confirm them now and sign them in!
+      if (isUnconfirmed) {
+        try {
+          const admin = createServiceRoleClient();
+          const { data: usersList } = await admin.auth.admin.listUsers();
+          const target = usersList?.users?.find(
+            (u) => u.email?.toLowerCase() === email.toLowerCase()
+          );
+          if (target) {
+            await admin.auth.admin.updateUserById(target.id, { email_confirm: true });
+            const retry = await supabase.auth.signInWithPassword({ email, password });
+            if (!retry.error && retry.data.user) {
+              const verifiedUser = await getAuthenticatedUser();
+              return NextResponse.json({
+                data: {
+                  user: verifiedUser,
+                },
+              });
+            }
+          }
+        } catch (confirmErr) {
+          console.error("Auto-confirm error during sign-in:", confirmErr);
+        }
+      }
+
       return NextResponse.json(
         {
           error: {
-            code: isUnconfirmed ? "EMAIL_NOT_CONFIRMED" : "INVALID_CREDENTIALS",
-            message: isUnconfirmed
-              ? "อีเมลนี้ยังไม่ได้ยืนยัน กรุณาตรวจสอบกล่องจดหมายของคุณหรือกดส่งลิงก์ยืนยันอีกครั้ง (Email not confirmed)"
-              : errMsg,
-            email: isUnconfirmed ? email : undefined,
+            code: "INVALID_CREDENTIALS",
+            message: errMsg,
           },
         },
         { status: 401 }
