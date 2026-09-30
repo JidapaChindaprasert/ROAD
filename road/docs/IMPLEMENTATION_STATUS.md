@@ -219,6 +219,18 @@
   - Optimized the user profile widget: constrained pill width (`shrink-0`), hidden redundant inline email on tablet (`hidden xl:inline`), and retained 1-click email copying in the user dropdown.
   - Eliminated syntax anomalies and cascading render warnings, achieving a 100% clean `npm run lint`, `npm run typecheck`, and `npm run test` pass rate.
 
+### Milestone 11 — My Reports User Isolation & Privacy Scoping ✅
+- **User-Scoped Report Fetching**:
+  - **Root Cause**: In `SupabaseReportRepository`, `listMyReports()` previously had a fallback querying up to 50 public reports whenever a user had 0 submitted reports or lacked an active session. In addition, `DemoReportRepository` returned all 20 mock reports indiscriminately.
+  - **Strict Ownership Filtering**:
+    - Updated `IReportRepository.listMyReports(userId?: string)` interface across demo and production repositories.
+    - In `SupabaseReportRepository`: Scoped queries strictly to `owner_id = targetUserId`. Removed the public reports fallback completely, guaranteeing that reports belonging to other citizens are never leaked into `/my-reports`.
+    - In `DemoReportRepository`: Scoped demo reports strictly to matching `r.ownerId === userId`.
+  - **Contextual Empty States in `/my-reports`**:
+    - **Guest / Unauthenticated Visitors**: Displays a clean empty state with a "Sign In to View Reports" button triggering `openAuthModal("signin")`.
+    - **New Citizen Users (0 Reports)**: Displays "You haven't reported any road damage yet" with a primary action button guiding the user directly to `/report/new`.
+    - Fixed React 19 / ESLint cascading render warnings (`react-hooks/set-state-in-effect`) by deriving empty guest states and avoiding synchronous state setting inside `useEffect`.
+
 ## Demo Mode
 - Run with `NEXT_PUBLIC_APP_MODE=demo` (default in `.env.local`).
 - Requires **no external credentials**.

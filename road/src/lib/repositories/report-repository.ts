@@ -17,7 +17,7 @@ export interface IReportRepository {
 
   getPublicReport(id: string): Promise<ReportDetail | null>;
 
-  listMyReports(): Promise<ReportDetail[]>;
+  listMyReports(userId?: string): Promise<ReportDetail[]>;
 
   submitReport(input: SubmitReportInput): Promise<ReportDetail>;
 

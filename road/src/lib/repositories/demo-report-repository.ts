@@ -62,9 +62,12 @@ export class DemoReportRepository implements IReportRepository {
     return report || null;
   }
 
-  async listMyReports(): Promise<ReportDetail[]> {
-    // In demo mode, return all stored reports with recent ones first
-    return getStoredDemoReports();
+  async listMyReports(userId?: string): Promise<ReportDetail[]> {
+    const all = getStoredDemoReports();
+    if (!userId) {
+      return [];
+    }
+    return all.filter((r) => r.ownerId === userId);
   }
 
   async submitReport(input: SubmitReportInput): Promise<ReportDetail> {

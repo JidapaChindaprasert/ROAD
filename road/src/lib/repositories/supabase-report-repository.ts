@@ -228,64 +228,58 @@ export class SupabaseReportRepository implements IReportRepository {
     });
   }
 
-  async listMyReports(): Promise<ReportDetail[]> {
+  async listMyReports(userId?: string): Promise<ReportDetail[]> {
     const supabase = this.getClient();
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const { data: reports } = await supabase
-          .from("reports")
-          .select(
-            `
-            *,
-            assigned_team:teams(id, name, public_display_name)
-          `
-          )
-          .eq("owner_id", user.id)
-          .order("created_at", { ascending: false });
-
-        if (reports && reports.length > 0) {
-          return reports.map((r) => {
-            const reportRow: DbReportRow = {
-              ...r,
-              public_longitude: r.public_location?.coordinates?.[0] ?? 100.5018,
-              public_latitude: r.public_location?.coordinates?.[1] ?? 13.7563,
-              exact_longitude: r.exact_location?.coordinates?.[0],
-              exact_latitude: r.exact_location?.coordinates?.[1],
-            };
-            return mapDbReportToDetail(reportRow, {
-              currentUserId: user.id,
-            });
-          });
-        }
+      let targetUserId = userId;
+      if (!targetUserId) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        targetUserId = user?.id;
       }
-    } catch {
-      // Continue to public reports fallback
-    }
 
-    // Fallback for operations triage queue: load available public reports
-    const publicSummaries = await this.listPublicReports({ limit: 50 });
-    return publicSummaries.map((s) => ({
-      ...s,
-      exactLocation: {
-        latitude: s.publicLatitude,
-        longitude: s.publicLongitude,
-        source: "manual",
-        capturedAt: s.createdAt,
-        localityLabel: s.localityLabel,
-      },
-      publicLocation: {
-        latitude: s.publicLatitude,
-        longitude: s.publicLongitude,
-        localityLabel: s.localityLabel,
-        isGeneralized: false,
-      },
-      media: [],
-      events: [],
-      version: 1,
-    }));
+      if (!targetUserId) {
+        // Unauthenticated visitor has no submitted reports
+        return [];
+      }
+
+      const { data: reports, error } = await supabase
+        .from("reports")
+        .select(
+          `
+          *,
+          assigned_team:teams(id, name, public_display_name)
+        `
+        )
+        .eq("owner_id", targetUserId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Failed to query user reports:", error);
+        return [];
+      }
+
+      if (!reports || reports.length === 0) {
+        return [];
+      }
+
+      return reports.map((r) => {
+        const reportRow: DbReportRow = {
+          ...r,
+          public_longitude: r.public_location?.coordinates?.[0] ?? 100.5018,
+          public_latitude: r.public_location?.coordinates?.[1] ?? 13.7563,
+          exact_longitude: r.exact_location?.coordinates?.[0],
+          exact_latitude: r.exact_location?.coordinates?.[1],
+        };
+        return mapDbReportToDetail(reportRow, {
+          currentUserId: targetUserId,
+        });
+      });
+    } catch (err) {
+      console.error("Error in listMyReports:", err);
+      return [];
+    }
   }
 
   async submitReport(input: SubmitReportInput): Promise<ReportDetail> {

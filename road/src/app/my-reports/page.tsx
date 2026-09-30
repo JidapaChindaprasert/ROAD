@@ -18,32 +18,46 @@ import {
   DEFAULT_ROAD_DAMAGE_IMAGE,
 } from "@/lib/constants/fallback-images";
 
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/use-auth";
 
 export default function MyReportsPage() {
+  const router = useRouter();
   const repository = useReportRepository();
-  const { user, isAuthenticated, openAuthModal } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading, openAuthModal } = useAuth();
   const [reports, setReports] = React.useState<ReportDetail[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [isFetching, setIsFetching] = React.useState(true);
 
   React.useEffect(() => {
+    if (!isAuthenticated || !user?.id) {
+      return;
+    }
+
     let isMounted = true;
+
     repository
-      .listMyReports()
+      .listMyReports(user.id)
       .then((data) => {
         if (isMounted) {
-          // If authenticated as citizen, scope data or display user reports
           setReports(data);
+          setIsFetching(false);
         }
       })
-      .finally(() => {
-        if (isMounted) setIsLoading(false);
+      .catch((err) => {
+        console.error("Failed to load user reports:", err);
+        if (isMounted) {
+          setReports([]);
+          setIsFetching(false);
+        }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [repository, user?.id]);
+  }, [repository, user?.id, isAuthenticated]);
+
+  const isLoading = authLoading || (isAuthenticated && isFetching);
+  const displayReports = !isAuthenticated || !user ? [] : reports;
 
   return (
     <PageContainer size="lg">
@@ -93,18 +107,26 @@ export default function MyReportsPage() {
           <Skeleton className="h-56 rounded-2xl" />
           <Skeleton className="h-56 rounded-2xl" />
         </div>
-      ) : reports.length === 0 ? (
+      ) : displayReports.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title="You haven't reported any road damage yet"
-          description="Notice a pothole, crack, or flooded drain? Submit a report in under a minute."
-          actionLabel="Report Damage Now"
-          onAction={() => (window.location.href = "/report/new")}
+          title={
+            isAuthenticated
+              ? "You haven't reported any road damage yet"
+              : "Sign in to view your submitted reports"
+          }
+          description={
+            isAuthenticated
+              ? "Notice a pothole, crack, or flooded drain? Submit a report in under a minute."
+              : "Log in with your citizen account to track all incidents and repair progress filed under your email."
+          }
+          actionLabel={isAuthenticated ? "Report Damage Now" : "Sign In to View Reports"}
+          onAction={() => (isAuthenticated ? router.push("/report/new") : openAuthModal("signin"))}
           className="my-8"
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {reports.map((report) => {
+          {displayReports.map((report) => {
             const categoryMeta =
               DAMAGE_CATEGORY_CONFIG[report.category] || DAMAGE_CATEGORY_CONFIG.other;
             const statusMeta =
