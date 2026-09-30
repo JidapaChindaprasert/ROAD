@@ -4,14 +4,14 @@ import { isDemoMode } from "@/lib/env";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getAppUrl } from "@/lib/auth/get-app-url";
 
-const resendSchema = z.object({
+const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email format"),
 });
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const parsed = resendSchema.safeParse(body);
+    const parsed = forgotPasswordSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { error: { code: "VALIDATION_ERROR", message: "กรุณาระบุที่อยู่อีเมลที่ถูกต้อง" } },
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     // Demo Mode
     if (isDemoMode) {
       return NextResponse.json({
-        data: { message: `Demo Mode: จำลองการส่งอีเมลยืนยันไปยัง ${email} เรียบร้อยแล้ว` },
+        data: { message: `จำลองการส่งลิงก์รีเซ็ตรหัสผ่านไปยัง ${email} เรียบร้อยแล้ว (Demo Mode)` },
       });
     }
 
@@ -32,12 +32,8 @@ export async function POST(req: NextRequest) {
     const supabase = await createServerSupabaseClient();
     const appUrl = getAppUrl(req);
 
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email,
-      options: {
-        emailRedirectTo: `${appUrl}/auth/callback`,
-      },
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${appUrl}/reset-password`,
     });
 
     if (error) {
@@ -45,16 +41,14 @@ export async function POST(req: NextRequest) {
       let userFriendlyMessage = errMsg;
 
       if (errMsg.toLowerCase().includes("rate limit") || errMsg.toLowerCase().includes("60 seconds")) {
-        userFriendlyMessage = "ส่งอีเมลถี่เกินไป กรุณารอ 60 วินาทีก่อนกดส่งอีกครั้ง";
-      } else if (errMsg.toLowerCase().includes("already confirmed")) {
-        userFriendlyMessage = "อีเมลนี้ได้รับการยืนยันแล้ว สามารถเข้าสู่ระบบได้ทันที";
+        userFriendlyMessage = "ส่งคำขอถี่เกินไป กรุณารอ 60 วินาทีก่อนกดขอใหม่อีกครั้ง";
       }
 
       return NextResponse.json(
         {
           error: {
-            code: "RESEND_FAILED",
-            message: userFriendlyMessage || "ไม่สามารถส่งอีเมลยืนยันได้ กรุณาลองใหม่อีกครั้ง",
+            code: "RESET_REQUEST_FAILED",
+            message: userFriendlyMessage || "ไม่สามารถส่งคำขอรีเซ็ตรหัสผ่านได้ กรุณาลองใหม่อีกครั้ง",
           },
         },
         { status: 400 }
@@ -62,10 +56,12 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      data: { message: `ส่งอีเมลยืนยันไปยัง ${email} เรียบร้อยแล้ว กรุณาตรวจสอบกล่องข้อความของคุณ` },
+      data: {
+        message: `ระบบได้ส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ไปยัง ${email} แล้ว กรุณาตรวจสอบกล่องข้อความของคุณ`,
+      },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Internal error resending email";
+    const message = err instanceof Error ? err.message : "Internal error processing forgot password request";
     return NextResponse.json(
       { error: { code: "SERVER_ERROR", message } },
       { status: 500 }

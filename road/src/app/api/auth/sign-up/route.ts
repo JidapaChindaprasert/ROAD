@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { isDemoMode, env } from "@/lib/env";
+import { isDemoMode } from "@/lib/env";
 import { DEMO_AUTH_COOKIE, getAuthenticatedUser } from "@/lib/auth/server-auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { getAppUrl } from "@/lib/auth/get-app-url";
 import { AuthUser, UserRole } from "@/features/auth/types";
 
 const signUpSchema = z.object({
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     // Production Mode Sign-Up
     const supabase = await createServerSupabaseClient();
-    const appUrl = env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const appUrl = getAppUrl(req);
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,

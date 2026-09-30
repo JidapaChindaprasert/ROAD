@@ -193,6 +193,22 @@
   - `supabase/migrations/20260930000003_align_report_constraints.sql`: Aligns PostgreSQL constraints for `location_source` (accepting `'gps'`, `'device'`, `'manual'`, `'exif'`) and `category` (accepting all 9 damage categories).
   - Aligned `POST /api/reports` to ensure resilient mapping of categories, location source (`gps` -> `device`), and columns inserted into `ai_analyses`.
 
+### Milestone 9 — Forgot Password, OTP Email Verification & Operations Role Scoping ✅
+- **Dynamic Origin URL Resolution**:
+  - Implemented `getAppUrl` in `src/lib/auth/get-app-url.ts` to dynamically resolve the client origin and host headers. Eliminates `localhost` connection refused errors when confirming emails or resetting passwords from remote devices or LAN IPs.
+- **Direct OTP/Token Verification for Email Confirmation**:
+  - Added `POST /api/auth/verify-email`: Users can directly input their 6-8 digit verification token into the UI, bypassing broken external localhost link redirection on mobile phones.
+  - Enhanced email confirmation screen with inline status alerts and editable email input.
+- **Forgot Password System**:
+  - Created `POST /api/auth/forgot-password` and `POST /api/auth/update-password`.
+  - Added "ลืมรหัสผ่าน?" tab in `AuthModal` and `/login` page with automated email dispatch.
+  - Created dedicated `/reset-password` page with password validation, strength checks, and recovery flow.
+- **Strict Operations Console Role Protection**:
+  - Hid `/operations` link from mobile navigation (`MobileNavigation`) for non-staff citizens (`reporter`).
+  - Added strict authorization boundary in `ReportQueue`: non-staff visitors see a polite, human Thai access denied screen redirecting them to "My Reports".
+- **Human UI Copy Polish**:
+  - Removed technical AI-sounding text: "Sign in with your verified Supabase credentials" and "บัญชีประชาชน (Citizen Account)". Replaced with clean, natural, human Thai typography.
+
 ## Demo Mode
 - Run with `NEXT_PUBLIC_APP_MODE=demo` (default in `.env.local`).
 - Requires **no external credentials**.

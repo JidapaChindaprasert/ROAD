@@ -12,12 +12,14 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   isAuthModalOpen: boolean;
-  authModalMode: "signin" | "signup" | "switch_role";
-  openAuthModal: (mode?: "signin" | "signup" | "switch_role") => void;
+  authModalMode: "signin" | "signup" | "switch_role" | "forgot_password" | "email_confirmation";
+  openAuthModal: (mode?: "signin" | "signup" | "switch_role" | "forgot_password" | "email_confirmation") => void;
   closeAuthModal: () => void;
   signIn: (email: string, password: string) => Promise<SignInResult>;
   signUp: (email: string, password: string, displayName: string) => Promise<SignUpResult>;
   resendConfirmation: (email: string) => Promise<boolean>;
+  verifyEmailOtp: (email: string, token: string) => Promise<{ success: boolean; message: string }>;
+  forgotPassword: (email: string) => Promise<{ success: boolean; message: string }>;
   signOut: () => Promise<void>;
   switchDemoRole: (role: UserRole) => Promise<void>;
   refreshSession: () => Promise<void>;
@@ -29,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isAuthModalOpen, setIsAuthModalOpen] = React.useState(false);
-  const [authModalMode, setAuthModalMode] = React.useState<"signin" | "signup" | "switch_role">("signin");
+  const [authModalMode, setAuthModalMode] = React.useState<"signin" | "signup" | "switch_role" | "forgot_password" | "email_confirmation">("signin");
 
   const refreshSession = React.useCallback(async () => {
     try {
@@ -68,10 +70,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const openAuthModal = React.useCallback((mode: "signin" | "signup" | "switch_role" = "signin") => {
-    setAuthModalMode(mode);
-    setIsAuthModalOpen(true);
-  }, []);
+  const openAuthModal = React.useCallback(
+    (mode: "signin" | "signup" | "switch_role" | "forgot_password" | "email_confirmation" = "signin") => {
+      setAuthModalMode(mode);
+      setIsAuthModalOpen(true);
+    },
+    []
+  );
 
   const closeAuthModal = React.useCallback(() => {
     setIsAuthModalOpen(false);
@@ -176,6 +181,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const verifyEmailOtp = async (email: string, token: string): Promise<{ success: boolean; message: string }> => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/auth/verify-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, token }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        const msg = json.error?.message || "ไม่สามารถยืนยันรหัสได้ กรุณาลองใหม่";
+        toast.error(msg);
+        return { success: false, message: msg };
+      }
+      if (json.data?.user) {
+        setUser(json.data.user);
+      }
+      toast.success(json.data?.message || "ยืนยันอีเมลสำเร็จเรียบร้อยแล้ว!");
+      closeAuthModal();
+      await refreshSession();
+      return { success: true, message: json.data?.message || "ยืนยันอีเมลสำเร็จเรียบร้อยแล้ว!" };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error verifying email";
+      toast.error(msg);
+      return { success: false, message: msg };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const forgotPassword = async (email: string): Promise<{ success: boolean; message: string }> => {
+    setIsLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        const msg = json.error?.message || "ไม่สามารถส่งคำขอรีเซ็ตรหัสผ่านได้";
+        toast.error(msg);
+        return { success: false, message: msg };
+      }
+      toast.success(json.data?.message || "ส่งลิงก์รีเซ็ตรหัสผ่านแล้ว");
+      return { success: true, message: json.data?.message || "ส่งลิงก์รีเซ็ตรหัสผ่านแล้ว" };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error requesting password reset";
+      toast.error(msg);
+      return { success: false, message: msg };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const signOut = async () => {
     setIsLoading(true);
     try {
@@ -233,6 +293,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signIn,
     signUp,
     resendConfirmation,
+    verifyEmailOtp,
+    forgotPassword,
     signOut,
     switchDemoRole,
     refreshSession,

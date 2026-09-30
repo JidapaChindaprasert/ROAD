@@ -22,6 +22,10 @@ import {
   MailCheck,
   RefreshCw,
   ArrowLeft,
+  KeyRound,
+  Send,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { getAllDemoUsers } from "@/features/auth/demo-users";
 import { isDemoMode } from "@/lib/env";
@@ -40,19 +44,33 @@ export default function LoginPage() {
     signIn,
     signUp,
     resendConfirmation,
+    verifyEmailOtp,
+    forgotPassword,
     signOut,
     switchDemoRole,
     isLoading,
   } = useAuth();
 
-  const [tab, setTab] = React.useState<"signin" | "signup" | "switch_role" | "email_confirmation">(
-    isDemoMode ? "switch_role" : "signin"
-  );
+  const [tab, setTab] = React.useState<
+    "signin" | "signup" | "switch_role" | "forgot_password" | "email_confirmation"
+  >(isDemoMode ? "switch_role" : "signin");
+
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [displayName, setDisplayName] = React.useState("");
   const [isResending, setIsResending] = React.useState(false);
   const [resendCooldown, setResendCooldown] = React.useState(0);
+  const [resendStatusMsg, setResendStatusMsg] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // OTP Verification state
+  const [otpToken, setOtpToken] = React.useState("");
+  const [isVerifyingOtp, setIsVerifyingOtp] = React.useState(false);
+  const [otpError, setOtpError] = React.useState<string | null>(null);
+
+  // Forgot Password state
+  const [forgotEmail, setForgotEmail] = React.useState("");
+  const [isSendingReset, setIsSendingReset] = React.useState(false);
+  const [resetSentMessage, setResetSentMessage] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -85,15 +103,61 @@ export default function LoginPage() {
   };
 
   const handleResend = async () => {
-    if (!email || isResending || resendCooldown > 0) return;
+    const targetEmail = email.trim();
+    if (!targetEmail || isResending || resendCooldown > 0) return;
     setIsResending(true);
+    setResendStatusMsg(null);
     try {
-      const ok = await resendConfirmation(email);
+      const ok = await resendConfirmation(targetEmail);
       if (ok) {
         setResendCooldown(60);
+        setResendStatusMsg({
+          type: "success",
+          text: `ระบบได้ส่งอีเมลยืนยันไปยัง ${targetEmail} แล้ว กรุณาตรวจสอบกล่องข้อความ`,
+        });
+      } else {
+        setResendStatusMsg({
+          type: "error",
+          text: "ส่งอีเมลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง หรือรอ 60 วินาที",
+        });
       }
     } finally {
       setIsResending(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetEmail = email.trim();
+    const token = otpToken.trim();
+    if (!targetEmail || !token) return;
+    setIsVerifyingOtp(true);
+    setOtpError(null);
+    try {
+      const res = await verifyEmailOtp(targetEmail, token);
+      if (res.success) {
+        router.push(returnTo);
+      } else {
+        setOtpError(res.message);
+      }
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetEmail = (forgotEmail || email).trim();
+    if (!targetEmail) return;
+    setIsSendingReset(true);
+    setResetSentMessage(null);
+    try {
+      const res = await forgotPassword(targetEmail);
+      if (res.success) {
+        setResetSentMessage(res.message);
+      }
+    } finally {
+      setIsSendingReset(false);
     }
   };
 
@@ -103,14 +167,11 @@ export default function LoginPage() {
     <PageContainer size="md" className="py-8 sm:py-12">
       <div className="max-w-md mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-soft border border-brand/20 text-brand text-xs font-bold uppercase tracking-wider">
-            <span>Identity & Access Control</span>
-          </div>
           <h1 className="text-3xl font-extrabold text-text-primary tracking-tight">
-            User Authentication
+            เข้าสู่ระบบ ROAD
           </h1>
           <p className="text-xs sm:text-sm text-text-secondary">
-            Sign in to verify your role, manage reports, or access staff maintenance dispatch.
+            เข้าสู่ระบบเพื่อติดตามสถานะการรายงานความเสียหายของถนน
           </p>
         </div>
 
@@ -162,11 +223,11 @@ export default function LoginPage() {
                   className="text-xs gap-1"
                 >
                   <LogOut className="h-3.5 w-3.5" />
-                  <span>Sign Out</span>
+                  <span>ออกจากระบบ</span>
                 </Button>
                 <Link href={returnTo}>
                   <Button variant="primary" size="sm" className="text-xs gap-1">
-                    <span>Continue</span>
+                    <span>ดำเนินการต่อ</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
                 </Link>
@@ -182,13 +243,32 @@ export default function LoginPage() {
               <div className="flex items-center justify-between p-1.5 rounded-xl bg-surface-muted border border-border-subtle">
                 <button
                   type="button"
-                  onClick={() => setTab("signin")}
+                  onClick={() => {
+                    setTab("signin");
+                    setResendStatusMsg(null);
+                    setOtpError(null);
+                  }}
                   className="flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors"
                 >
                   <ArrowLeft className="h-3.5 w-3.5" />
-                  <span>Back to Sign In</span>
+                  <span>กลับไปหน้าเข้าสู่ระบบ</span>
                 </button>
-                <span className="text-xs font-bold text-brand pr-2">Email Verification</span>
+                <span className="text-xs font-bold text-brand pr-2">ยืนยันอีเมล</span>
+              </div>
+            ) : tab === "forgot_password" ? (
+              <div className="flex items-center justify-between p-1.5 rounded-xl bg-surface-muted border border-border-subtle">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab("signin");
+                    setResetSentMessage(null);
+                  }}
+                  className="flex items-center gap-1.5 py-1 px-2.5 rounded-lg text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>กลับไปหน้าเข้าสู่ระบบ</span>
+                </button>
+                <span className="text-xs font-bold text-brand pr-2">ลืมรหัสผ่าน</span>
               </div>
             ) : (
               <div className="flex items-center gap-1.5 p-1 rounded-xl bg-surface-muted border border-border-subtle">
@@ -201,7 +281,7 @@ export default function LoginPage() {
                       : "text-text-secondary hover:text-text-primary"
                   }`}
                 >
-                  Sign In
+                  เข้าสู่ระบบ
                 </button>
                 <button
                   type="button"
@@ -212,7 +292,7 @@ export default function LoginPage() {
                       : "text-text-secondary hover:text-text-primary"
                   }`}
                 >
-                  Register
+                  สมัครสมาชิก
                 </button>
                 {isDemoMode && (
                   <button
@@ -224,9 +304,9 @@ export default function LoginPage() {
                         : "text-text-secondary hover:text-text-primary"
                     }`}
                   >
-                    <span>Roles</span>
+                    <span>Demo Roles</span>
                     <Badge variant="outline" size="sm" className="text-[10px] border-white/30 text-current py-0 px-1">
-                      Demo
+                      Test
                     </Badge>
                   </button>
                 )}
@@ -239,19 +319,31 @@ export default function LoginPage() {
             {tab === "signin" && (
               <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-text-primary">Email Address</label>
+                  <label className="text-xs font-semibold text-text-primary">อีเมล</label>
                   <Input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="somchai@road.bkk"
+                    placeholder="name@example.com"
                     autoComplete="email"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-text-primary">Password</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-text-primary">รหัสผ่าน</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotEmail(email);
+                        setTab("forgot_password");
+                      }}
+                      className="text-xs text-brand hover:underline"
+                    >
+                      ลืมรหัสผ่าน?
+                    </button>
+                  </div>
                   <Input
                     type="password"
                     required
@@ -262,15 +354,10 @@ export default function LoginPage() {
                   />
                 </div>
 
-                <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <span className="text-xs text-text-muted">
-                    {isDemoMode
-                      ? "Demo Mode: any password accepted."
-                      : "Sign in with your registered account."}
-                  </span>
-                  <Button type="submit" variant="primary" isLoading={isLoading} className="w-full sm:w-auto gap-2">
+                <div className="pt-2 flex justify-end">
+                  <Button type="submit" variant="primary" isLoading={isLoading} className="gap-2 w-full sm:w-auto">
                     <LogIn className="h-4 w-4" />
-                    <span>Sign In</span>
+                    <span>เข้าสู่ระบบ</span>
                   </Button>
                 </div>
               </form>
@@ -280,30 +367,30 @@ export default function LoginPage() {
             {tab === "signup" && (
               <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-text-primary">Full Name</label>
+                  <label className="text-xs font-semibold text-text-primary">ชื่อ - นามสกุล หรือชื่อแสดง</label>
                   <Input
                     type="text"
                     required
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="e.g. Somsak Jaidee"
+                    placeholder="เช่น สมชาย ใจดี"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-text-primary">Email Address</label>
+                  <label className="text-xs font-semibold text-text-primary">อีเมล</label>
                   <Input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@agency.gov.th"
+                    placeholder="name@example.com"
                     autoComplete="email"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-text-primary">Password (minimum 6 characters)</label>
+                  <label className="text-xs font-semibold text-text-primary">รหัสผ่าน (อย่างน้อย 6 ตัวอักษร)</label>
                   <Input
                     type="password"
                     required
@@ -315,63 +402,183 @@ export default function LoginPage() {
                   />
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-surface-muted border border-border text-xs text-text-secondary flex items-start gap-2.5">
-                  <Shield className="h-4 w-4 text-brand shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-semibold text-text-primary block">บัญชีประชาชน (Citizen Account)</span>
-                    <p className="text-[11px] text-text-muted mt-0.5">
-                      ลงทะเบียนสำหรับแจ้งปัญหาถนนและติดตามผลงานซ่อม สำหรับสิทธิ์เจ้าหน้าที่และผู้ดูแลระบบจะได้รับการจัดการจากระบบหลังบ้าน
-                    </p>
-                  </div>
-                </div>
-
                 <div className="pt-2 flex justify-end">
-                  <Button type="submit" variant="primary" isLoading={isLoading} className="gap-2">
+                  <Button type="submit" variant="primary" isLoading={isLoading} className="gap-2 w-full sm:w-auto">
                     <UserPlus className="h-4 w-4" />
-                    <span>Create Account</span>
+                    <span>สร้างบัญชีผู้ใช้</span>
                   </Button>
                 </div>
               </form>
             )}
 
-            {/* TAB: EMAIL CONFIRMATION */}
+            {/* TAB 3: FORGOT PASSWORD */}
+            {tab === "forgot_password" && (
+              <div className="space-y-4">
+                {resetSentMessage ? (
+                  <div className="space-y-4 text-center py-2">
+                    <div className="mx-auto w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600">
+                      <CheckCircle2 className="h-6 w-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-text-primary text-base">ส่งลิงก์ตั้งรหัสผ่านใหม่แล้ว</h4>
+                      <p className="text-xs text-text-muted leading-relaxed">
+                        {resetSentMessage}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setTab("signin");
+                        setResetSentMessage(null);
+                      }}
+                    >
+                      กลับไปหน้าเข้าสู่ระบบ
+                    </Button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleForgotPassword} className="space-y-4">
+                    <p className="text-xs text-text-secondary leading-relaxed">
+                      ระบุที่อยู่อีเมลที่คุณใช้ลงทะเบียน เราจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ไปยังกล่องข้อความของคุณ
+                    </p>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-text-primary">อีเมล</label>
+                      <Input
+                        type="email"
+                        required
+                        value={forgotEmail || email}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        placeholder="name@example.com"
+                        autoComplete="email"
+                      />
+                    </div>
+
+                    <div className="pt-2 space-y-2">
+                      <Button
+                        type="submit"
+                        variant="primary"
+                        className="w-full gap-2 justify-center"
+                        isLoading={isSendingReset}
+                      >
+                        <Send className="h-4 w-4" />
+                        <span>ส่งลิงก์รีเซ็ตรหัสผ่าน</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full text-xs text-text-muted hover:text-text-primary"
+                        onClick={() => setTab("signin")}
+                      >
+                        ยกเลิก / กลับไปเข้าสู่ระบบ
+                      </Button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            )}
+
+            {/* TAB 4: EMAIL CONFIRMATION */}
             {tab === "email_confirmation" && (
-              <div className="space-y-4 py-2 text-center">
-                <div className="mx-auto w-14 h-14 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
-                  <MailCheck className="h-7 w-7" />
+              <div className="space-y-4 py-1 text-center">
+                <div className="mx-auto w-12 h-12 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
+                  <MailCheck className="h-6 w-6" />
                 </div>
 
                 <div className="space-y-1">
-                  <h3 className="text-lg font-bold text-text-primary">
+                  <h3 className="text-base font-bold text-text-primary">
                     กรุณายืนยันที่อยู่อีเมลของคุณ
                   </h3>
                   <p className="text-xs text-text-muted">
-                    Please verify your email address to activate your account
+                    ตรวจสอบกล่องข้อความเพื่อเปิดใช้งานบัญชี
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-surface-muted border border-border text-left space-y-2.5">
+                {resendStatusMsg && (
+                  <div
+                    className={`p-3 rounded-xl border text-xs text-left flex items-start gap-2 ${
+                      resendStatusMsg.type === "success"
+                        ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-700 dark:text-emerald-300"
+                        : "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400"
+                    }`}
+                  >
+                    {resendStatusMsg.type === "success" ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    )}
+                    <span>{resendStatusMsg.text}</span>
+                  </div>
+                )}
+
+                <div className="p-3.5 rounded-xl bg-surface-muted border border-border text-left space-y-2">
                   <div className="text-xs text-text-secondary">
-                    เราได้ส่งลิงก์ยืนยันตัวตนไปยัง:
+                    ส่งลิงก์ยืนยันตัวตนไปยัง:
                   </div>
-                  <div className="font-semibold text-sm text-text-primary bg-surface px-3 py-2 rounded-lg border border-border-subtle break-all">
-                    {email || "your-email@example.com"}
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@example.com"
+                      className="text-xs h-8 bg-surface"
+                    />
                   </div>
-                  <p className="text-xs text-text-muted leading-relaxed">
-                    กรุณาตรวจสอบกล่องข้อความในอีเมลของคุณ (รวมถึงโฟลเดอร์ <strong>Junk / Spam</strong>) และคลิกลิงก์ยืนยัน เพื่อเปิดใช้งานบัญชีและเข้าสู่ระบบ
+                  <p className="text-[11px] text-text-muted leading-relaxed">
+                    กรุณาตรวจสอบกล่องข้อความในอีเมล (รวมถึงโฟลเดอร์ <strong>Junk / Spam</strong>) และคลิกลิงก์ยืนยัน
                   </p>
                 </div>
 
-                <div className="space-y-2.5 pt-2">
+                {/* Direct OTP / Token Verification */}
+                <form onSubmit={handleVerifyOtp} className="p-3.5 rounded-xl bg-surface border border-border text-left space-y-2.5">
+                  <div>
+                    <label className="text-xs font-semibold text-text-primary block">
+                      หรือกรอกรหัสยืนยัน (Token 6-8 หลัก)
+                    </label>
+                    <span className="text-[11px] text-text-muted">
+                      (กรณีคลิกลิงก์บนมือถือแล้วติดข้อความ localhost ปฏิเสธการเชื่อมต่อ)
+                    </span>
+                  </div>
+
+                  {otpError && (
+                    <div className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                      <span>{otpError}</span>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      required
+                      placeholder="เช่น 123456"
+                      value={otpToken}
+                      onChange={(e) => setOtpToken(e.target.value)}
+                      className="text-xs h-8 font-mono"
+                    />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      variant="primary"
+                      isLoading={isVerifyingOtp}
+                      className="text-xs h-8 shrink-0 px-3"
+                    >
+                      ยืนยันรหัส
+                    </Button>
+                  </div>
+                </form>
+
+                <div className="space-y-2 pt-1">
                   <Button
                     type="button"
-                    variant="primary"
-                    className="w-full gap-2 justify-center"
+                    variant="outline"
+                    className="w-full gap-2 justify-center text-xs h-9"
                     onClick={handleResend}
                     isLoading={isResending}
-                    disabled={resendCooldown > 0}
+                    disabled={resendCooldown > 0 || !email.trim()}
                   >
-                    <RefreshCw className={`h-4 w-4 ${isResending ? "animate-spin" : ""}`} />
+                    <RefreshCw className={`h-3.5 w-3.5 ${isResending ? "animate-spin" : ""}`} />
                     <span>
                       {resendCooldown > 0
                         ? `ส่งอีกครั้งได้ใน ${resendCooldown} วินาที`
@@ -381,22 +588,21 @@ export default function LoginPage() {
 
                   <Button
                     type="button"
-                    variant="outline"
-                    className="w-full gap-2 justify-center"
+                    variant="ghost"
+                    className="w-full text-xs text-text-muted hover:text-text-primary h-8"
                     onClick={() => setTab("signin")}
                   >
-                    <LogIn className="h-4 w-4" />
-                    <span>ไปที่หน้าเข้าสู่ระบบ (Sign In)</span>
+                    กลับไปหน้าเข้าสู่ระบบ (Sign In)
                   </Button>
                 </div>
               </div>
             )}
 
-            {/* TAB 3: ROLE SWITCHER (For Testing & Verification) */}
+            {/* TAB 5: ROLE SWITCHER (For Testing & Verification) */}
             {tab === "switch_role" && (
               <div className="space-y-3">
                 <p className="text-xs text-text-secondary">
-                  Choose a verified role to test application access and data isolation:
+                  เลือกบทบาทเพื่อทดสอบสิทธิ์การใช้งานใน Demo Mode:
                 </p>
 
                 <div className="space-y-2.5">
@@ -413,41 +619,42 @@ export default function LoginPage() {
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <div
-                            className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${
+                            className={`h-9 w-9 rounded-xl flex items-center justify-center text-white shrink-0 ${
                               du.role === "admin"
-                                ? "bg-purple-100 text-purple-700"
+                                ? "bg-purple-600"
                                 : du.role === "staff"
-                                ? "bg-amber-100 text-amber-700"
-                                : "bg-blue-100 text-blue-700"
+                                ? "bg-amber-600"
+                                : "bg-brand"
                             }`}
                           >
                             {du.role === "admin" ? (
-                              <ShieldAlert className="h-5 w-5" />
+                              <ShieldAlert className="h-4 w-4" />
                             ) : du.role === "staff" ? (
-                              <Shield className="h-5 w-5" />
+                              <Shield className="h-4 w-4" />
                             ) : (
-                              <User className="h-5 w-5" />
+                              <User className="h-4 w-4" />
                             )}
                           </div>
-
-                          <div className="min-w-0 space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-bold text-text-primary truncate">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-xs text-text-primary truncate">
                                 {du.displayName}
                               </span>
-                              <span
-                                className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
-                                  du.role === "admin"
-                                    ? "bg-purple-50 text-purple-700 border-purple-200"
-                                    : du.role === "staff"
-                                    ? "bg-amber-50 text-amber-800 border-amber-200"
-                                    : "bg-blue-50 text-blue-700 border-blue-200"
-                                }`}
+                              <Badge
+                                variant={du.role === "admin" ? "danger" : du.role === "staff" ? "brand" : "neutral"}
+                                size="sm"
+                                className="uppercase text-[9px]"
                               >
                                 {du.role}
-                              </span>
+                              </Badge>
                             </div>
-                            <p className="text-xs text-text-muted truncate">{du.email}</p>
+                            <p className="text-[11px] text-text-secondary truncate mt-0.5">
+                              {du.role === "admin"
+                                ? "ผู้ดูแลระบบ: จัดการสิทธิ์เจ้าหน้าที่และระบบ"
+                                : du.role === "staff"
+                                ? "เจ้าหน้าที่ฝ่ายปฏิบัติการ: อัปเดตสถานะงานซ่อม ดูพิกัดแม่นยำ"
+                                : "ประชาชนทั่วไป: แจ้งเหตุและติดตามรายงานของตนเอง"}
+                            </p>
                           </div>
                         </div>
 
@@ -462,10 +669,7 @@ export default function LoginPage() {
                               type="button"
                               variant="outline"
                               size="sm"
-                              onClick={async () => {
-                                await switchDemoRole(du.role);
-                                router.push(returnTo);
-                              }}
+                              onClick={() => switchDemoRole(du.role)}
                               isLoading={isLoading}
                               className="text-xs font-semibold"
                             >

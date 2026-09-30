@@ -54,12 +54,15 @@ export function ReportQueue() {
   const [govFormReport, setGovFormReport] = React.useState<ReportDetail | null>(null);
 
   const loadReports = React.useCallback(() => {
+    if (!isStaff) return;
     repository.listMyReports().then(setReports);
-  }, [repository]);
+  }, [repository, isStaff]);
 
   React.useEffect(() => {
-    loadReports();
-  }, [loadReports]);
+    if (isStaff) {
+      loadReports();
+    }
+  }, [loadReports, isStaff]);
 
   // Realtime subscription for multi-session live updates
   useRealtimeSubscription({
@@ -147,60 +150,30 @@ export function ReportQueue() {
   // Enforce staff/admin role verification
   if (!isStaff) {
     return (
-      <div className="py-12 max-w-xl mx-auto space-y-6 text-center">
-        <div className="h-16 w-16 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto border border-amber-200 shadow-xs">
-          <Lock className="h-8 w-8" />
+      <div className="py-16 max-w-xl mx-auto space-y-6 text-center">
+        <div className="h-16 w-16 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mx-auto border border-amber-500/20 shadow-xs">
+          <ShieldAlert className="h-8 w-8" />
         </div>
         <div className="space-y-2">
-          <h2 className="text-2xl font-black text-text-primary tracking-tight">Staff Authorization Required</h2>
+          <h2 className="text-2xl font-bold text-text-primary tracking-tight">
+            สำหรับเจ้าหน้าที่ฝ่ายปฏิบัติการเท่านั้น
+          </h2>
           <p className="text-sm text-text-secondary leading-relaxed">
-            The municipal maintenance queue is restricted to authorized road maintenance crews and district engineers.
-            {user ? (
-              <span className="block mt-1">
-                You are currently authenticated as <strong>{user.displayName}</strong> with role{" "}
-                <span className="font-mono uppercase font-bold text-brand bg-brand-soft px-1.5 py-0.5 rounded">
-                  {user.role}
-                </span>.
-              </span>
-            ) : (
-              <span className="block mt-1">
-                Please sign in with your verified municipal staff credentials.
-              </span>
-            )}
+            หน้านี้สงวนสิทธิ์สำหรับเจ้าหน้าที่ในการติดตาม มอบหมาย และจัดการสถานะงานซ่อมถนน
+            ประชาชนทั่วไปสามารถติดตามรายงานความเสียหายของคุณได้ที่เมนู &quot;My Reports&quot;
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-          {isDemoMode ? (
-            <Button
-              type="button"
-              variant="primary"
-              onClick={() => openAuthModal("switch_role")}
-              className="gap-2 font-bold"
-            >
-              <RefreshCw className="h-4 w-4" />
-              <span>Switch Role to Staff (Demo)</span>
+          <Link href="/my-reports">
+            <Button variant="primary" className="gap-2 font-semibold">
+              <FileText className="h-4 w-4" />
+              <span>ไปที่หน้า My Reports</span>
             </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="primary"
-              onClick={() => openAuthModal("signin")}
-              className="gap-2 font-bold"
-            >
-              <LogIn className="h-4 w-4" />
-              <span>Staff Sign In</span>
-            </Button>
-          )}
-
-          <Link href="/map">
-            <Button variant="ghost">Back to Map</Button>
+          </Link>
+          <Link href="/">
+            <Button variant="outline">กลับหน้าหลัก</Button>
           </Link>
         </div>
-        {!isDemoMode && (
-          <p className="text-xs text-text-muted mt-2">
-            * สิทธิ์เจ้าหน้าที่ปฏิบัติการต้องได้รับการแต่งตั้งโดยผู้ดูแลระบบผ่านระบบหลังบ้าน (Admin Console)
-          </p>
-        )}
       </div>
     );
   }

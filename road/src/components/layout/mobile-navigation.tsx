@@ -5,16 +5,18 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Map, PlusCircle, FileText, ShieldAlert } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/features/auth/use-auth";
 
 export function MobileNavigation() {
   const pathname = usePathname();
+  const { isStaff, isAdmin } = useAuth();
 
   const navItems = [
     { href: "/", label: "Home", icon: LayoutDashboard },
     { href: "/map", label: "Map", icon: Map },
     { href: "/report/new", label: "Report", icon: PlusCircle, isPrimary: true },
     { href: "/my-reports", label: "My Reports", icon: FileText },
-    { href: "/operations", label: "Ops", icon: ShieldAlert },
+    ...((isStaff || isAdmin) ? [{ href: "/operations", label: "Ops", icon: ShieldAlert }] : []),
   ];
 
   return (
