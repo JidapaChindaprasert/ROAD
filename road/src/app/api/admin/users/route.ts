@@ -298,3 +298,64 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+const deleteUserSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+});
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const adminUser = await requireRole(["admin"], req);
+    const body = await req.json();
+    const parsed = deleteUserSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: "User ID is required" } },
+        { status: 400 }
+      );
+    }
+
+    const { userId } = parsed.data;
+
+    if (userId === adminUser.id) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: "ไม่สามารถลบบัญชีผู้ดูแลระบบของตนเองได้" } },
+        { status: 400 }
+      );
+    }
+
+    if (isDemoMode) {
+      return NextResponse.json({
+        data: { success: true, message: `จำลองการลบผู้ใช้ ${userId} เรียบร้อยแล้ว (Demo Mode)` },
+      });
+    }
+
+    const admin = createServiceRoleClient();
+    const { error } = await admin.auth.admin.deleteUser(userId);
+
+    if (error) {
+      console.error("Failed to delete user:", error);
+      return NextResponse.json(
+        { error: { code: "DELETE_USER_FAILED", message: error.message || "Failed to delete user." } },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({
+      data: { success: true, message: "ลบผู้ใช้และข้อมูลที่เกี่ยวข้องเรียบร้อยแล้ว" },
+    });
+  } catch (err: unknown) {
+    const errorObj = err as { status?: number; code?: string; message?: string };
+    const status = errorObj.status || 500;
+    return NextResponse.json(
+      {
+        error: {
+          code: errorObj.code || "DELETE_FAILED",
+          message: errorObj.message || "Failed to delete user",
+        },
+      },
+      { status }
+    );
+  }
+}
+

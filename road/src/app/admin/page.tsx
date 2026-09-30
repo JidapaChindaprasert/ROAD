@@ -23,6 +23,7 @@ import {
   Lock,
   PlusCircle,
   CheckCircle2,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
@@ -109,6 +110,33 @@ export default function AdminPage() {
       await fetchUsers();
     } catch {
       toast.error("Failed to execute role mutation");
+    } finally {
+      setMutatingUserId(null);
+    }
+  };
+
+  const handleDeleteUser = async (targetUserId: string, targetEmail: string) => {
+    if (!confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบบัญชี ${targetEmail}? ข้อมูลรายงานและรูปภาพทั้งหมดจะถูกลบตามไปด้วย`)) {
+      return;
+    }
+    setMutatingUserId(targetUserId);
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: targetUserId }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        toast.error(json.error?.message || "Failed to delete user");
+        return;
+      }
+
+      toast.success(json.data?.message || "User deleted successfully");
+      await fetchUsers();
+    } catch {
+      toast.error("Failed to delete user");
     } finally {
       setMutatingUserId(null);
     }
@@ -455,6 +483,22 @@ export default function AdminPage() {
                               title="แต่งตั้งเป็นผู้ดูแลระบบ (Admin)"
                             >
                               <span>Grant Admin</span>
+                            </Button>
+                          )}
+
+                          {/* Delete user button (if not self) */}
+                          {!isCurrentAdmin && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={isUserMutating}
+                              onClick={() => handleDeleteUser(u.id, u.email)}
+                              className="text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                              title="ลบบัญชีผู้ใช้"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span className="sr-only">Delete</span>
                             </Button>
                           )}
                         </div>
