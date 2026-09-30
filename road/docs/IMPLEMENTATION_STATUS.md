@@ -206,8 +206,18 @@
 - **Strict Operations Console Role Protection**:
   - Hid `/operations` link from mobile navigation (`MobileNavigation`) for non-staff citizens (`reporter`).
   - Added strict authorization boundary in `ReportQueue`: non-staff visitors see a polite, human Thai access denied screen redirecting them to "My Reports".
-- **Human UI Copy Polish**:
-  - Removed technical AI-sounding text: "Sign in with your verified Supabase credentials" and "บัญชีประชาชน (Citizen Account)". Replaced with clean, natural, human Thai typography.
+### Milestone 10 — Responsive Navigation & Community Map Layout Polish ✅
+- **Community Damage Map Filter Bar & View Mode Toggle Responsiveness**:
+  - Refactored `MapFilters` (`src/features/map/components/map-filters.tsx`) layout from rigid `sm:` breakpoints to fluid `md:` and `lg:` adaptive flex rows.
+  - Category dropdown now scales with `flex-1 min-w-0 truncate` on mobile devices, ensuring it never collides or forces sibling controls off-screen.
+  - Map / List toggle button group now features explicit `shrink-0`, matching `h-10` control height, centered icons and labels, and standard `role="tablist"` / `role="tab"` ARIA accessibility.
+  - Status filter pill list now smoothly scrolls horizontally (`overflow-x-auto no-scrollbar`) on narrow phone screens (320px - 390px) without line breaking or wrapping into the report counter.
+- **Tablet & Mobile Navbar Overlap Resolution**:
+  - Fixed tablet navigation collision in `AppHeader` (`src/components/layout/app-header.tsx`) where user profile pills previously collided with desktop navigation links (`Overview`, `Community Map`, `My Reports`).
+  - Set horizontal navigation links to `hidden lg:flex` (1024px+), reserving clean navbar space on tablet screens (768px - 1023px).
+  - Added a responsive mobile & tablet Hamburger menu button (`lg:hidden`) next to the brand logo, with an accessible slide-down drawer containing all navigation links, mode indicators, and quick-report actions.
+  - Optimized the user profile widget: constrained pill width (`shrink-0`), hidden redundant inline email on tablet (`hidden xl:inline`), and retained 1-click email copying in the user dropdown.
+  - Eliminated syntax anomalies and cascading render warnings, achieving a 100% clean `npm run lint`, `npm run typecheck`, and `npm run test` pass rate.
 
 ## Demo Mode
 - Run with `NEXT_PUBLIC_APP_MODE=demo` (default in `.env.local`).
