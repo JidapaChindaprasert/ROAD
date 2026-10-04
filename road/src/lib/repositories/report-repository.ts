@@ -19,6 +19,8 @@ export interface IReportRepository {
 
   listMyReports(userId?: string): Promise<ReportDetail[]>;
 
+  listAllReports?(): Promise<ReportDetail[]>;
+
   submitReport(input: SubmitReportInput): Promise<ReportDetail>;
 
   transitionReport(input: TransitionStatusInput): Promise<ReportDetail>;

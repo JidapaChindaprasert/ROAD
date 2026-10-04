@@ -154,7 +154,7 @@ export async function classifyWithRoboflow(params: {
     suggestedSeverity,
     confidenceScore: primaryPrediction.confidence,
     labels,
-    summary: `Roboflow vision model identified ${primaryCategory.replace("_", " ")} with ${(
+    summary: `AI automated scan identified ${primaryCategory.replace("_", " ")} with ${(
       primaryPrediction.confidence * 100
     ).toFixed(0)}% model score.`,
     needsHumanReview: primaryCategory === "subsidence" || primaryPrediction.confidence < 0.65,

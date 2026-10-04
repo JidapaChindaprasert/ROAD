@@ -299,7 +299,7 @@ export function ReportDetailView({ initialReport }: ReportDetailViewProps) {
             </CardHeader>
             <CardContent className="space-y-2 text-xs text-text-secondary">
               <div className="font-semibold text-text-primary text-sm">
-                {report.assignedTeam?.publicDisplayName || "Central Highway District Dispatch"}
+                {report.assignedTeam?.publicDisplayName || "Unassigned"}
               </div>
               <p>
                 Responsible for road safety assessments, asphalt milling, and structural repairs.

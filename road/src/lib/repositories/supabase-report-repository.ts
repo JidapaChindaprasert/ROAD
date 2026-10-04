@@ -57,7 +57,31 @@ export class SupabaseReportRepository implements IReportRepository {
         throw new Error(`Failed to query bounded reports from Supabase: ${error.message}`);
       }
 
-      return (data as DbPublicFeatureRow[] || []).map(mapDbFeatureToSummary);
+      const featureRows = data as DbPublicFeatureRow[] || [];
+      if (featureRows.length > 0) {
+        const reportIds = featureRows.map((r) => r.report_id);
+        const { data: mediaRows } = await supabase
+          .from("report_media")
+          .select("report_id, sanitized_path, approved_public_derivative_path, private_original_path")
+          .in("report_id", reportIds);
+          
+        if (mediaRows && mediaRows.length > 0) {
+          for (const row of featureRows) {
+            if (!row.thumbnail_url) {
+              const reportMedia = mediaRows.filter((m) => m.report_id === row.report_id);
+              if (reportMedia.length > 0) {
+                const firstMedia = reportMedia[0];
+                const rawPath = firstMedia.approved_public_derivative_path || firstMedia.sanitized_path || firstMedia.private_original_path;
+                if (rawPath) {
+                  const { data: urlData } = supabase.storage.from("reports").getPublicUrl(rawPath);
+                  row.thumbnail_url = urlData.publicUrl;
+                }
+              }
+            }
+          }
+        }
+      }
+      return featureRows.map(mapDbFeatureToSummary);
     }
 
     // Default query on public_report_features
@@ -79,7 +103,31 @@ export class SupabaseReportRepository implements IReportRepository {
       throw new Error(`Failed to query public report features: ${error.message}`);
     }
 
-    return (data as DbPublicFeatureRow[] || []).map(mapDbFeatureToSummary);
+    const featureRows = data as DbPublicFeatureRow[] || [];
+    if (featureRows.length > 0) {
+      const reportIds = featureRows.map((r) => r.report_id);
+      const { data: mediaRows } = await supabase
+        .from("report_media")
+        .select("report_id, sanitized_path, approved_public_derivative_path, private_original_path")
+        .in("report_id", reportIds);
+        
+      if (mediaRows && mediaRows.length > 0) {
+        for (const row of featureRows) {
+          if (!row.thumbnail_url) {
+            const reportMedia = mediaRows.filter((m) => m.report_id === row.report_id);
+            if (reportMedia.length > 0) {
+              const firstMedia = reportMedia[0];
+              const rawPath = firstMedia.approved_public_derivative_path || firstMedia.sanitized_path || firstMedia.private_original_path;
+              if (rawPath) {
+                const { data: urlData } = supabase.storage.from("reports").getPublicUrl(rawPath);
+                row.thumbnail_url = urlData.publicUrl;
+              }
+            }
+          }
+        }
+      }
+    }
+    return featureRows.map(mapDbFeatureToSummary);
   }
 
   async getPublicReport(id: string): Promise<ReportDetail | null> {
@@ -228,6 +276,29 @@ export class SupabaseReportRepository implements IReportRepository {
     });
   }
 
+  async listAllReports(): Promise<ReportDetail[]> {
+    const supabase = this.getClient();
+    const { data: reports, error } = await supabase
+      .from("reports")
+      .select(`*, assigned_team:teams(id, name, public_display_name), media:report_media(*)`)
+      .order("created_at", { ascending: false });
+    if (error) return [];
+    return reports.map((r: any) => mapDbReportToDetail({
+      ...r,
+      public_longitude: r.public_location?.coordinates?.[0] ?? 100.5018,
+      public_latitude: r.public_location?.coordinates?.[1] ?? 13.7563,
+      exact_longitude: r.exact_location?.coordinates?.[0],
+      exact_latitude: r.exact_location?.coordinates?.[1],
+    }, {
+      isStaff: true,
+      media: r.media,
+      publicUrlResolver: (path: string) => {
+        const { data } = supabase.storage.from("reports").getPublicUrl(path);
+        return data.publicUrl;
+      }
+    }));
+  }
+
   async listMyReports(userId?: string): Promise<ReportDetail[]> {
     const supabase = this.getClient();
     try {
@@ -249,7 +320,8 @@ export class SupabaseReportRepository implements IReportRepository {
         .select(
           `
           *,
-          assigned_team:teams(id, name, public_display_name)
+          assigned_team:teams(id, name, public_display_name),
+          media:report_media(*)
         `
         )
         .eq("owner_id", targetUserId)
@@ -272,8 +344,13 @@ export class SupabaseReportRepository implements IReportRepository {
           exact_longitude: r.exact_location?.coordinates?.[0],
           exact_latitude: r.exact_location?.coordinates?.[1],
         };
-        return mapDbReportToDetail(reportRow, {
+        return mapDbReportToDetail(reportRow as any, {
           currentUserId: targetUserId,
+          media: r.media,
+          publicUrlResolver: (path: string) => {
+            const { data } = supabase.storage.from("reports").getPublicUrl(path);
+            return data.publicUrl;
+          }
         });
       });
     } catch (err) {

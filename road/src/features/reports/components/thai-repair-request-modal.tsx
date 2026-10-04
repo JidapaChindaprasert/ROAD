@@ -59,33 +59,22 @@ export function ThaiRepairRequestModal({
   const modalLat = report.publicLocation?.latitude ?? report.publicLatitude ?? 13.7563;
   const modalLng = report.publicLocation?.longitude ?? report.publicLongitude ?? 100.5018;
 
-  // Extract address elements
-  const locationLabel = report.localityLabel || "ตำบลหนองไฮ";
-  const defaultRoadName =
-    report.title.replace(/^Deep Asphalt Pothole on\s*/i, "").replace(/^Severe\s*/i, "") || "สายหลักในชุมชน";
-
   // Form State for interactive editing
-  const [writtenAt, setWrittenAt] = React.useState(locationLabel);
-  const [moo, setMoo] = React.useState("3");
-  const [ban, setBan] = React.useState("หนองไฮ");
+  const [writtenAt, setWrittenAt] = React.useState("");
+  const [moo, setMoo] = React.useState("");
+  const [ban, setBan] = React.useState("");
   const [day, setDay] = React.useState(initialDate.day);
   const [month, setMonth] = React.useState(initialDate.month);
   const [year, setYear] = React.useState(initialDate.year);
-  const [recipient, setRecipient] = React.useState("นายกองค์การบริหารส่วนตำบลหนองไฮ");
-  const [roadName, setRoadName] = React.useState(defaultRoadName);
-  const [damageLength, setDamageLength] = React.useState("35");
-  const [damageDescription, setDamageDescription] = React.useState(
-    report.category === "pothole"
-      ? "เป็นหลุม บ่อ ขนาดใหญ่และขอบถนนกะเทาะ"
-      : report.category === "crack"
-      ? "มีรอยแตกร้าวรุนแรง ผิวจราจรหลุดร่อน"
-      : report.category === "subsidence"
-      ? "ทรุดตัวเป็นแอ่งลึก เป็นอันตรายต่อการสัญจร"
-      : "ชำรุดเสียหาย เป็นหลุม บ่อ มีน้ำท่วมขัง"
-  );
-  const [applicantName, setApplicantName] = React.useState("นายสมศักดิ์ พัฒนาไทย");
-  const [applicantPosition, setApplicantPosition] = React.useState("ผู้ใหญ่บ้านหมู่ที่ 3 / สมาชิกสภา อบต.");
+  const [recipient, setRecipient] = React.useState("");
+  const [roadName, setRoadName] = React.useState("");
+  const [damageLength, setDamageLength] = React.useState("");
+  const [damageDescription, setDamageDescription] = React.useState("");
+  const [applicantName, setApplicantName] = React.useState("");
+  const [applicantPosition, setApplicantPosition] = React.useState("");
   const [isEditing, setIsEditing] = React.useState(false);
+
+  const val = (v: string, len: number) => (v.trim() ? v : "\u00A0".repeat(len));
 
   const handlePrint = () => {
     window.print();
@@ -274,22 +263,20 @@ export function ThaiRepairRequestModal({
         >
           {/* Top Center: Official Royal Thai Garuda Emblem (ตราครุฑ) */}
           <div className="flex flex-col items-center justify-center pb-2 text-center">
-            <div className="w-16 h-16 rounded-full border-2 border-slate-700 print:border-black flex items-center justify-center font-bold text-xs uppercase tracking-wider bg-slate-50 print:bg-transparent shadow-2xs">
-              ตราครุฑ
-            </div>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Garuda_Emblem_of_Thailand.svg/200px-Garuda_Emblem_of_Thailand.svg.png" crossOrigin="anonymous" alt="ตราครุฑ" className="w-16 h-16 object-contain" />
           </div>
 
           {/* Header Right: Written At & Date */}
           <div className="flex flex-col items-end text-right space-y-1">
             <div>
-              เขียนที่ <span className="font-semibold underline decoration-dotted underline-offset-4">{writtenAt}</span>{" "}
-              หมู่ที่ <span className="font-semibold underline decoration-dotted underline-offset-4">{moo}</span>{" "}
-              บ้าน <span className="font-semibold underline decoration-dotted underline-offset-4">{ban}</span>
+              เขียนที่ <span className="font-semibold underline decoration-dotted underline-offset-4">{val(writtenAt, 30)}</span>{" "}
+              หมู่ที่ <span className="font-semibold underline decoration-dotted underline-offset-4">{val(moo, 15)}</span>{" "}
+              บ้าน <span className="font-semibold underline decoration-dotted underline-offset-4">{val(ban, 25)}</span>
             </div>
             <div>
-              วันที่ <span className="font-semibold underline decoration-dotted underline-offset-4">{day}</span>{" "}
-              เดือน <span className="font-semibold underline decoration-dotted underline-offset-4">{month}</span>{" "}
-              พ.ศ. <span className="font-semibold underline decoration-dotted underline-offset-4">{year}</span>
+              วันที่ <span className="font-semibold underline decoration-dotted underline-offset-4">{val(day, 10)}</span>{" "}
+              เดือน <span className="font-semibold underline decoration-dotted underline-offset-4">{val(month, 20)}</span>{" "}
+              พ.ศ. <span className="font-semibold underline decoration-dotted underline-offset-4">{val(year, 15)}</span>
             </div>
           </div>
 
@@ -303,25 +290,25 @@ export function ThaiRepairRequestModal({
             </div>
             <div>
               <strong className="font-bold">เรียน</strong>{" "}
-              <span className="font-semibold underline decoration-dotted underline-offset-4">{recipient}</span>
+              <span className="font-semibold underline decoration-dotted underline-offset-4">{val(recipient, 40)}</span>
             </div>
           </div>
 
           {/* Paragraph 1: Problem Statement */}
           <div className="text-justify indent-12 pt-2">
             ด้วย ถนนดิน/ ถนนลูกรังสาย{" "}
-            <span className="font-semibold underline decoration-dotted underline-offset-4">{roadName}</span>{" "}
-            หมู่ที่ <span className="font-semibold underline decoration-dotted underline-offset-4">{moo}</span>{" "}
-            บ้าน <span className="font-semibold underline decoration-dotted underline-offset-4">{ban}</span>{" "}
+            <span className="font-semibold underline decoration-dotted underline-offset-4">{val(roadName, 30)}</span>{" "}
+            หมู่ที่ <span className="font-semibold underline decoration-dotted underline-offset-4">{val(moo, 15)}</span>{" "}
+            บ้าน <span className="font-semibold underline decoration-dotted underline-offset-4">{val(ban, 25)}</span>{" "}
             ระยะทางยาวประมาณ{" "}
-            <span className="font-semibold underline decoration-dotted underline-offset-4">{damageLength}</span>{" "}
-            เมตร ได้เกิดการชำรุดเสียหาย {damageDescription}{" "}
+            <span className="font-semibold underline decoration-dotted underline-offset-4">{val(damageLength, 15)}</span>{" "}
+            เมตร ได้เกิดการชำรุดเสียหาย {val(damageDescription, 40)}{" "}
             เป็นเหตุให้ประชาชนผู้ใช้เส้นทางไม่ได้รับความสะดวก และอาจเกิดอันตรายต่อชีวิตและทรัพย์สินในการสัญจรไปมา
           </div>
 
           {/* Paragraph 2: Petition Request */}
           <div className="text-justify indent-12">
-            ดังนั้น จึงขอความอนุเคราะห์มายัง {recipient} ในการพิจารณาจัดส่งเจ้าหน้าที่และเครื่องจักรเข้าตรวจสอบ
+            ดังนั้น จึงขอความอนุเคราะห์มายัง <span className="font-semibold underline decoration-dotted underline-offset-4">{val(recipient, 30)}</span> ในการพิจารณาจัดส่งเจ้าหน้าที่และเครื่องจักรเข้าตรวจสอบ
             พร้อมดำเนินการซ่อมแซมถนนสายดังกล่าวข้างต้น ให้สามารถกลับมาใช้งานได้อย่างมั่นคง ปลอดภัยตามปกติ
             ทั้งนี้เพื่อประโยชน์สุข ความสะดวก และความปลอดภัยของประชาชนภายในหมู่บ้านและพื้นที่ใกล้เคียงต่อไป
           </div>
@@ -335,10 +322,10 @@ export function ThaiRepairRequestModal({
           <div className="pt-8 flex flex-col items-end text-center pr-8 sm:pr-12 space-y-2">
             <div>ขอแสดงความนับถือ</div>
             <div className="pt-10">
-              (&nbsp;&nbsp;<span className="font-semibold">{applicantName}</span>&nbsp;&nbsp;)
+              (&nbsp;&nbsp;<span className="font-semibold">{val(applicantName, 30)}</span>&nbsp;&nbsp;)
             </div>
             <div className="text-sm">
-              ตำแหน่ง {applicantPosition}
+              ตำแหน่ง <span className="font-semibold underline decoration-dotted underline-offset-4">{val(applicantPosition, 30)}</span>
             </div>
           </div>
 
@@ -381,23 +368,13 @@ export function ThaiRepairRequestModal({
                 </div>
                 <div>
                   <strong>จุดสังเกต / สถานที่:</strong>{" "}
-                  <span>{report.locationContext || report.localityLabel || "กรุงเทพมหานครและปริมณฑล"}</span>
+                  <span>{report.locationContext || report.localityLabel || "-"}</span>
                 </div>
                 <div>
                   <strong>ประเภทความเสียหาย:</strong>{" "}
                   <span>{report.category}</span>
                 </div>
-                {report.aiAnalysis && (
-                  <div>
-                    <strong>การวิเคราะห์ระบบ AI:</strong>{" "}
-                    <span>
-                      {report.aiAnalysis.summary} (ความแม่นยำ {(report.aiAnalysis.confidenceScore! * 100).toFixed(0)}%)
-                    </span>
-                  </div>
-                )}
-                <div className="text-[11px] text-slate-500 print:text-black pt-1">
-                  ตรวจสอบและยืนยันผ่านระบบ ROAD Civic Damage Intelligence Platform
-                </div>
+                
               </div>
             </div>
           </div>

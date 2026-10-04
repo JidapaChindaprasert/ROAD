@@ -150,3 +150,25 @@ body {
   font-family: inherit !important;
   outline: none;
 }
+
+@media print {
+  [role="dialog"] {
+    position: static !important;
+    transform: none !important;
+    inset: auto !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
+  /* Hide the modal backdrop during print */
+  [data-state="open"] + div[data-aria-hidden="true"] {
+    display: none !important;
+  }
+  
+  /* Reset body overflow to allow multi-page scrolling during print */
+  body {
+    overflow: visible !important;
+  }
+}

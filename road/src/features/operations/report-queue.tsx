@@ -55,7 +55,7 @@ export function ReportQueue() {
 
   const loadReports = React.useCallback(() => {
     if (!isStaff) return;
-    repository.listMyReports().then(setReports);
+    if (repository.listAllReports) repository.listAllReports().then(setReports); else repository.listMyReports().then(setReports);
   }, [repository, isStaff]);
 
   React.useEffect(() => {

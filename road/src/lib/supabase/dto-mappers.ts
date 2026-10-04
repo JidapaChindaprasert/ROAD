@@ -188,7 +188,7 @@ export function mapDbReportToDetail(
       labels: Array.isArray(aiAnalysis.labels) ? (aiAnalysis.labels as ClassificationLabel[]) : [],
       primaryCategory: (aiAnalysis.primary_category || category) as DamageCategory,
       suggestedSeverity: (aiAnalysis.suggested_severity || "medium") as SuggestedSeverity,
-      summary: aiAnalysis.summary || `Roboflow vision detected ${aiAnalysis.primary_category}`,
+      summary: aiAnalysis.summary || "AI Analysis Complete",
       needsHumanReview: Boolean(aiAnalysis.needs_human_review),
       imageQualityIssues: Array.isArray(aiAnalysis.quality_issues) ? (aiAnalysis.quality_issues as string[]) : [],
       confidenceScore: aiAnalysis.confidence ? Number(aiAnalysis.confidence) : undefined,

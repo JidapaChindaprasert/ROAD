@@ -62,6 +62,10 @@ export class DemoReportRepository implements IReportRepository {
     return report || null;
   }
 
+  async listAllReports(): Promise<ReportDetail[]> {
+    return getStoredDemoReports();
+  }
+
   async listMyReports(userId?: string): Promise<ReportDetail[]> {
     const all = getStoredDemoReports();
     if (!userId) {
