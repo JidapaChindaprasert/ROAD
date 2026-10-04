@@ -97,9 +97,6 @@ export function ClassificationPanel({
             <span className="text-base font-bold text-text-primary">
               {categoryMeta.label}
             </span>
-            <Badge variant={categoryMeta.dangerLevel === "high" ? "danger" : "brand"} size="sm">
-              {analysis.suggestedSeverity.toUpperCase()} SEVERITY
-            </Badge>
           </div>
           <p className="text-xs text-text-secondary">{analysis.summary}</p>
         </div>

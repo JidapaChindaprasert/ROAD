@@ -339,15 +339,7 @@ export function EvidenceUploader({
             แปะรูป (Paste / Ctrl+V)
           </Button>
 
-          <Button
-            type="button"
-            size="sm"
-            variant="soft-brand"
-            onClick={handleLoadSample}
-            className="text-xs font-bold"
-          >
-            ⚡ ใช้รูปตัวอย่าง (Demo Photo)
-          </Button>
+
 
           <Button
             type="button"
