@@ -50,9 +50,11 @@
 
 ### Milestone 4 — Evidence and AI ✅
 - **Server-Side AI Classification Gateway** (`/api/ai/classify`):
-  - Server-side proxy for Roboflow inference ensuring `ROBOFLOW_API_KEY` never leaks to client browser bundles.
-  - Automatically toggles between production Roboflow vision model and transparent deterministic simulated AI (`[Simulated AI]`).
-  - Strict structured schema output with categories, bounding boxes, severity, and review flags.
+  - Multi-provider AI architecture supporting `custom_yolo` (`yolo11s-road-v1` with `best_v3.pt`), `roboflow`, and transparent simulated demo fallback.
+  - Server-side proxy ensuring credentials (`YOLO_API_TOKEN`, `ROBOFLOW_API_KEY`) never leak to client browser bundles.
+  - Seamless multipart forwarding of image buffers and data URLs to the local/self-hosted FastAPI vision microservice.
+  - Strict structured schema output with categories (`pothole`, `crack`, `subsidence`, `surface_wear`, `obstruction`, etc.), bounding boxes, severity, confidence score, and review flags.
+  - Dedicated adapter `src/features/ai/custom-yolo-adapter.ts` with comprehensive unit test coverage (`tests/unit/custom-yolo-adapter.test.ts`).
 - **Evidence Upload Intent & Finalization**:
   - `POST /api/drafts`: Creates authenticated report drafts.
   - `POST /api/drafts/[id]/upload-intent`: Validates file size (max 10MB) and MIME types, issuing signed upload destination URLs.
@@ -249,6 +251,8 @@
 - All AI results labeled `[Simulated AI]`.
 
 ## Production Mode
-- Set `NEXT_PUBLIC_APP_MODE=production` and configure Supabase + Roboflow + AI SDK env vars.
+- Set `NEXT_PUBLIC_APP_MODE=production` and configure Supabase + custom YOLO (`AI_PROVIDER=custom_yolo`).
 - Uses PostgreSQL PostGIS and RLS policies.
+- **Zero-Cost Production Setup**: Documented in `docs/FREE_PRODUCTION_GUIDE.md` (Vercel Hobby + Hugging Face Spaces / Render + Supabase Free + OpenFreeMap = $0.00/month).
+
 - Fails clearly when configuration is missing without silent mock fallback.

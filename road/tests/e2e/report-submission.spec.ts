@@ -5,8 +5,8 @@ test.describe("Citizen Damage Report Submission Flow", () => {
     await page.goto("/report/new");
 
     // Verify Wizard Step 1: Evidence Photo
-    await expect(page.getByText("Step 1 of 2")).toBeVisible();
-    await expect(page.getByText("Drop a photo. We’ll help identify the damage.")).toBeVisible();
+    await expect(page.getByText("Step 1 of 2").first()).toBeVisible();
+    await expect(page.getByText("Drop a photo. We’ll help identify the damage.").first()).toBeVisible();
 
     // Click 'Use Demo Photo' button
     const demoPhotoBtn = page.getByRole("button", { name: /(ใช้รูปตัวอย่าง|Demo Photo)/i });
@@ -23,7 +23,7 @@ test.describe("Citizen Damage Report Submission Flow", () => {
     await nextBtn.click();
 
     // Verify Step 2: Location & AI Review
-    await expect(page.getByText("Step 2 of 2")).toBeVisible();
+    await expect(page.getByText("Step 2 of 2").first()).toBeVisible();
     await expect(page.getByText("Confirm Incident Location")).toBeVisible();
 
     // Verify mini-map search bar is available

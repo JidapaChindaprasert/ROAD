@@ -146,14 +146,16 @@ export function ReportWizard() {
 
   const triggerAiAnalysis = async (fileName: string, mediaItem?: MediaItem) => {
     setIsAnalyzing(true);
-    setAiError(null);
     try {
+      setAiError(null);
+      const isDataUrl = mediaItem?.url?.startsWith("data:");
       // Call secure server endpoint /api/ai/classify
       const response = await fetch("/api/ai/classify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          imageUrl: mediaItem?.url,
+          imageUrl: isDataUrl ? undefined : mediaItem?.url,
+          imageBase64: isDataUrl ? mediaItem?.url : undefined,
           fileName,
         }),
       });
@@ -165,12 +167,17 @@ export function ReportWizard() {
           setSelectedCategory(json.data.primaryCategory);
           return;
         }
+      } else {
+        const errorJson = await response.json().catch(() => ({}));
+        // If it's a sample/demo photo or demo mode, fall back to simulated classification
+        if (isDemoMode || fileName.toLowerCase().includes("sample") || fileName.toLowerCase().includes("demo")) {
+          const result = await simulateDamageClassification(fileName, 800);
+          setAiAnalysis(result);
+          setSelectedCategory(result.primaryCategory);
+          return;
+        }
+        throw new Error(errorJson?.error?.message || `AI service returned error status ${response.status}`);
       }
-
-      // Transparent deterministic fallback in demo/offline mode
-      const result = await simulateDamageClassification(fileName, 1200);
-      setAiAnalysis(result);
-      setSelectedCategory(result.primaryCategory);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to analyze road damage image";
       setAiError(message);

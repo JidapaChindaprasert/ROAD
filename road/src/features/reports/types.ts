@@ -52,7 +52,7 @@ export interface ClassificationLabel {
 }
 
 export interface AIAnalysisResult {
-  provider: "roboflow" | "openai" | "demo";
+  provider: "roboflow" | "custom_yolo" | "openai" | "demo";
   model: string;
   labels: ClassificationLabel[];
   primaryCategory: DamageCategory;

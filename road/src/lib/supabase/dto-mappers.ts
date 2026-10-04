@@ -183,7 +183,7 @@ export function mapDbReportToDetail(
   let mappedAi: AIAnalysisResult | undefined = undefined;
   if (aiAnalysis) {
     mappedAi = {
-      provider: "roboflow",
+      provider: (aiAnalysis.provider as "roboflow" | "custom_yolo" | "openai" | "demo") || "custom_yolo",
       model: aiAnalysis.model,
       labels: Array.isArray(aiAnalysis.labels) ? (aiAnalysis.labels as ClassificationLabel[]) : [],
       primaryCategory: (aiAnalysis.primary_category || category) as DamageCategory,

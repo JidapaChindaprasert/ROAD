@@ -14,7 +14,9 @@ const envSchema = z.object({
   
   // Server-only variables
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
-  AI_PROVIDER: z.enum(["roboflow", "openai", "demo"]).default("roboflow"),
+  AI_PROVIDER: z.enum(["roboflow", "custom_yolo", "openai", "demo"]).default("roboflow"),
+  YOLO_API_URL: z.string().default("http://127.0.0.1:7860"),
+  YOLO_API_TOKEN: z.string().optional(),
   ROBOFLOW_API_KEY: z.string().optional(),
   ROBOFLOW_MODEL_ID: z.string().optional(),
   ROBOFLOW_VERSION: z.string().optional(),
@@ -38,6 +40,8 @@ export const env = envSchema.parse({
   
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   AI_PROVIDER: process.env.AI_PROVIDER,
+  YOLO_API_URL: process.env.YOLO_API_URL,
+  YOLO_API_TOKEN: process.env.YOLO_API_TOKEN,
   ROBOFLOW_API_KEY: process.env.ROBOFLOW_API_KEY,
   ROBOFLOW_MODEL_ID: process.env.ROBOFLOW_MODEL_ID,
   ROBOFLOW_VERSION: process.env.ROBOFLOW_VERSION,

@@ -44,7 +44,7 @@ export const ClassificationLabelSchema = z.object({
 });
 
 export const AIAnalysisResultSchema = z.object({
-  provider: z.enum(["roboflow", "openai", "demo"]),
+  provider: z.enum(["roboflow", "custom_yolo", "openai", "demo"]),
   model: z.string(),
   labels: z.array(ClassificationLabelSchema),
   primaryCategory: DamageCategorySchema,

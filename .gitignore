@@ -40,3 +40,22 @@ next-env.d.ts
 road/next-env.d.ts
 .vercel/
 road/.vercel/
+
+# AI Training, weights & datasets
+runs/
+weights/
+
+# Ignore everything in road-ai except what is required for Render deployment
+road-ai/*
+!road-ai/main.py
+!road-ai/requirements.txt
+!road-ai/best_v3.pt
+!road-ai/Dockerfile
+!road-ai/.dockerignore
+!road-ai/README.md
+
+# Python caches and metadata
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.Zone.Identifier

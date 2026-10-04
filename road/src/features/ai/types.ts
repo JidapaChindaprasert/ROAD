@@ -20,7 +20,7 @@ export interface RoboflowResponse {
 }
 
 export interface DamageClassificationResult {
-  provider: "roboflow" | "openai" | "demo";
+  provider: "roboflow" | "custom_yolo" | "openai" | "demo";
   model: string;
   primaryCategory: DamageCategory;
   suggestedSeverity: SuggestedSeverity;

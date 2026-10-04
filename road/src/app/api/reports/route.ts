@@ -39,7 +39,7 @@ const submitReportSchema = z.object({
     .default([]),
   aiAnalysis: z
     .object({
-      provider: z.enum(["roboflow", "openai", "demo"]).default("demo"),
+      provider: z.enum(["roboflow", "custom_yolo", "openai", "demo"]).default("demo"),
       model: z.string().default("road-damage-v1"),
       primaryCategory: z.enum([
         "pothole",

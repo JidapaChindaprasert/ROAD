@@ -2,6 +2,8 @@ import { claimJobs, completeJob, failJob, enqueueJob, JobRecord } from "./queue"
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { validateMediaBuffer, stripJpegExif } from "@/lib/media/sanitizer";
 import { classifyWithRoboflow } from "@/features/ai/roboflow-adapter";
+import { classifyWithCustomYolo } from "@/features/ai/custom-yolo-adapter";
+import { env } from "@/lib/env";
 
 export interface WorkerRunSummary {
   processed: number;
@@ -120,18 +122,25 @@ async function processSingleJob(job: JobRecord): Promise<void> {
       throw new Error(`Failed to generate signed URL for inference: ${signedError?.message}`);
     }
 
-    // Run Roboflow classification
-    const classification = await classifyWithRoboflow({
-      imageUrl: signedData.signedUrl,
-      confidenceThreshold: 0.4,
-    });
+    // Run AI classification based on configured provider
+    const classification =
+      env.AI_PROVIDER === "custom_yolo"
+        ? await classifyWithCustomYolo({
+            imageUrl: signedData.signedUrl,
+            apiUrl: env.YOLO_API_URL,
+            apiToken: env.YOLO_API_TOKEN,
+          })
+        : await classifyWithRoboflow({
+            imageUrl: signedData.signedUrl,
+            confidenceThreshold: 0.4,
+          });
 
     // Record AI Analysis
     await supabase.from("ai_analyses").insert({
       media_id: media.id,
       draft_id: job.draft_id,
       report_id: job.report_id,
-      provider: "roboflow",
+      provider: classification.provider,
       model: classification.model,
       labels: classification.labels,
       primary_category: classification.primaryCategory,
