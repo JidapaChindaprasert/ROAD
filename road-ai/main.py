@@ -65,6 +65,17 @@ def severity(category: str, area_ratio: float) -> str:
     return "low"
 
 
+@app.get("/")
+def root():
+    return {
+        "name": "ROAD AI Vision Engine",
+        "status": "online",
+        "model": MODEL_NAME,
+        "health": "/health",
+        "docs": "/docs",
+    }
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "model": MODEL_NAME, "classes": model.names}
