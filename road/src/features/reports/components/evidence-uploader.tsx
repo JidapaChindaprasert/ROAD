@@ -155,6 +155,8 @@ export function EvidenceUploader({
     setUploadError("กดปุ่ม Ctrl+V (หรือ Command+V) เพื่อแปะรูปภาพจากคลิปบอร์ดได้โดยตรง");
   };
 
+  const sampleIndexRef = React.useRef(0);
+
   const handleLoadSample = () => {
     setUploadError(null);
     if (typeof document === "undefined") return;
@@ -166,7 +168,11 @@ export function EvidenceUploader({
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
 
-      // Dark textured asphalt roadbed
+      const types = ["pothole", "crack", "subsidence"] as const;
+      const currentType = types[sampleIndexRef.current % types.length];
+      sampleIndexRef.current += 1;
+
+      // Dark asphalt roadbed
       ctx.fillStyle = "#2D3748";
       ctx.fillRect(0, 0, 640, 420);
 
@@ -174,33 +180,86 @@ export function EvidenceUploader({
       ctx.fillStyle = "#ECC94B";
       ctx.fillRect(0, 200, 640, 20);
 
-      // Dark deep pothole cavity
-      ctx.fillStyle = "#1A202C";
-      ctx.beginPath();
-      ctx.ellipse(320, 240, 110, 55, 0, 0, Math.PI * 2);
-      ctx.fill();
+      if (currentType === "crack") {
+        // Jagged asphalt crack across road
+        ctx.strokeStyle = "#1A202C";
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.moveTo(100, 50);
+        ctx.lineTo(240, 180);
+        ctx.lineTo(290, 220);
+        ctx.lineTo(400, 320);
+        ctx.lineTo(540, 390);
+        ctx.stroke();
 
-      // Surrounding asphalt fracture cracks
-      ctx.strokeStyle = "#4A5568";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(210, 240);
-      ctx.lineTo(160, 260);
-      ctx.moveTo(430, 240);
-      ctx.lineTo(480, 220);
-      ctx.stroke();
+        ctx.strokeStyle = "#718096";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(240, 180);
+        ctx.lineTo(310, 140);
+        ctx.moveTo(400, 320);
+        ctx.lineTo(460, 350);
+        ctx.stroke();
 
-      // Stamp demo tag
-      ctx.fillStyle = "#A0AEC0";
-      ctx.font = "bold 14px monospace";
-      ctx.fillText("ROAD HAZARD #BKK-01 [POTHOLE]", 20, 35);
+        ctx.fillStyle = "#A0AEC0";
+        ctx.font = "bold 14px monospace";
+        ctx.fillText("ROAD HAZARD #BKK-CRACK [SURFACE CRACK]", 20, 35);
 
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const file = new File([blob], "bangkok_pothole_sample.jpg", { type: "image/jpeg" });
-          onAddFiles([file]);
-        }
-      }, "image/jpeg", 0.92);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], "bangkok_surface_crack_sample.jpg", { type: "image/jpeg" });
+            onAddFiles([file]);
+          }
+        }, "image/jpeg", 0.92);
+      } else if (currentType === "subsidence") {
+        // Sunken depressed road surface
+        const grad = ctx.createLinearGradient(0, 100, 0, 350);
+        grad.addColorStop(0, "#2D3748");
+        grad.addColorStop(0.5, "#171923");
+        grad.addColorStop(1, "#2D3748");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(320, 230, 220, 90, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#A0AEC0";
+        ctx.font = "bold 14px monospace";
+        ctx.fillText("ROAD HAZARD #BKK-SUBSIDENCE [SUBSIDENCE]", 20, 35);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], "bangkok_subsidence_sample.jpg", { type: "image/jpeg" });
+            onAddFiles([file]);
+          }
+        }, "image/jpeg", 0.92);
+      } else {
+        // Pothole cavity
+        ctx.fillStyle = "#1A202C";
+        ctx.beginPath();
+        ctx.ellipse(320, 240, 110, 55, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Surrounding asphalt fracture cracks
+        ctx.strokeStyle = "#4A5568";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(210, 240);
+        ctx.lineTo(160, 260);
+        ctx.moveTo(430, 240);
+        ctx.lineTo(480, 220);
+        ctx.stroke();
+
+        ctx.fillStyle = "#A0AEC0";
+        ctx.font = "bold 14px monospace";
+        ctx.fillText("ROAD HAZARD #BKK-POTHOLE [POTHOLE]", 20, 35);
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const file = new File([blob], "bangkok_pothole_sample.jpg", { type: "image/jpeg" });
+            onAddFiles([file]);
+          }
+        }, "image/jpeg", 0.92);
+      }
     } catch {
       // Fallback
     }

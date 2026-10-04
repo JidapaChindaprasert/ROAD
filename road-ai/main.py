@@ -5,6 +5,10 @@ Env (all optional):
 """
 import io
 import os
+import torch
+
+# Limit PyTorch to 1 CPU thread to avoid memory spikes and thrashing on containerized free tier (512MB RAM)
+torch.set_num_threads(1)
 
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from PIL import Image
@@ -20,7 +24,9 @@ elif os.path.exists("best.pt"):
     MODEL_PATH = "best.pt"
 else:
     MODEL_PATH = requested_path
-CONF = float(os.getenv("CONF", "0.35"))
+
+# Lower threshold to 0.20 so cracks, sidewalks, and subsidence are detected alongside potholes
+CONF = float(os.getenv("CONF", "0.20"))
 IOU = float(os.getenv("IOU", "0.45"))
 TTA = os.getenv("TTA", "0") == "1"
 API_TOKEN = os.getenv("API_TOKEN")  # if set, requests must send X-API-Token
@@ -90,7 +96,11 @@ def health():
 
 
 @app.post("/predict")
-async def predict(file: UploadFile = File(...), x_api_token: str = Header(None)):
+async def predict(
+    file: UploadFile = File(...),
+    conf: float = CONF,
+    x_api_token: str = Header(None),
+):
     if API_TOKEN and x_api_token != API_TOKEN:
         raise HTTPException(401, "Invalid token")
     try:
@@ -99,7 +109,7 @@ async def predict(file: UploadFile = File(...), x_api_token: str = Header(None))
         raise HTTPException(400, "Invalid image")
 
     W, H = img.size
-    res = model.predict(img, imgsz=640, conf=CONF, iou=IOU, augment=TTA, verbose=False)[0]
+    res = model.predict(img, imgsz=640, conf=conf, iou=IOU, augment=TTA, verbose=False)[0]
 
     labels = []
     for b in res.boxes:
