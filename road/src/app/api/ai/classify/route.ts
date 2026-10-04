@@ -7,15 +7,52 @@ import { AIAnalysisResult } from "@/features/reports/types";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const { imageBase64, imageUrl, fileName } = body;
+    const contentType = req.headers.get("content-type") || "";
+    let imageBase64: string | undefined;
+    let imageUrl: string | undefined;
+    let fileName: string | undefined;
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      const file = formData.get("file") as File | null;
+      if (file) {
+        fileName = file.name;
+        const arrayBuf = await file.arrayBuffer();
+        imageBase64 = Buffer.from(arrayBuf).toString("base64");
+      }
+      imageUrl = (formData.get("imageUrl") as string) || undefined;
+    } else {
+      let body: { imageBase64?: string; imageUrl?: string; fileName?: string } = {};
+      try {
+        body = await req.json();
+      } catch (parseErr: unknown) {
+        const msg = parseErr instanceof Error ? parseErr.message : "Failed to parse JSON body";
+        return NextResponse.json(
+          {
+            error: {
+              code: "BAD_REQUEST",
+              message: `Could not parse request body (${msg}). If sending a large image, optimize/compress it client-side or use multipart/form-data.`,
+            },
+          },
+          { status: 400 }
+        );
+      }
+      imageBase64 = body.imageBase64;
+      imageUrl = body.imageUrl;
+      fileName = body.fileName;
+    }
+
+    if (imageUrl?.startsWith("data:")) {
+      imageBase64 = imageUrl;
+      imageUrl = undefined;
+    }
 
     if (!imageBase64 && !imageUrl) {
       return NextResponse.json(
         {
           error: {
             code: "VALIDATION_ERROR",
-            message: "Either imageBase64 or imageUrl is required for damage classification.",
+            message: "Either imageBase64, imageUrl, or uploaded file is required for damage classification.",
           },
         },
         { status: 400 }

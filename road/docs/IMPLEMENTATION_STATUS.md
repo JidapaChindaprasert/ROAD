@@ -50,14 +50,19 @@
 
 ### Milestone 4 — Evidence and AI ✅
 - **Server-Side AI Classification Gateway** (`/api/ai/classify`):
-  - Multi-provider AI architecture supporting `custom_yolo` (`yolo11s-road-v1` with `best_v3.pt`), `roboflow`, and transparent simulated demo fallback.
+  - Multi-provider AI architecture supporting `custom_yolo` (`yolo11s-road-v5` with `best_v5.pt` on Render.com free tier), `roboflow`, and transparent simulated demo fallback.
   - Server-side proxy ensuring credentials (`YOLO_API_TOKEN`, `ROBOFLOW_API_KEY`) never leak to client browser bundles.
-  - Seamless multipart forwarding of image buffers and data URLs to the local/self-hosted FastAPI vision microservice.
+  - Seamless multipart forwarding of image buffers and data URLs to the self-hosted FastAPI vision microservice.
   - Strict structured schema output with categories (`pothole`, `crack`, `subsidence`, `surface_wear`, `obstruction`, etc.), bounding boxes, severity, confidence score, and review flags.
   - Dedicated adapter `src/features/ai/custom-yolo-adapter.ts` with comprehensive unit test coverage (`tests/unit/custom-yolo-adapter.test.ts`).
+- **Client-Side Image Optimization & Upload Reliability** (`src/lib/media/client-optimizer.ts`):
+  - In-browser Canvas downscaling and JPEG compression for raw smartphone camera photos (e.g. 15-25MB photos compressed to ~350KB).
+  - Eliminates HTTP 413 (Payload Too Large) and HTTP 400 JSON parse errors.
+  - Expanded supported formats to include HEIC/HEIF and AVIF with extension-based fallback.
+  - Dedicated server-side upload gateway `/api/media/upload` supporting up to 25MB with service-role permissions.
 - **Evidence Upload Intent & Finalization**:
   - `POST /api/drafts`: Creates authenticated report drafts.
-  - `POST /api/drafts/[id]/upload-intent`: Validates file size (max 10MB) and MIME types, issuing signed upload destination URLs.
+  - `POST /api/drafts/[id]/upload-intent`: Validates file size (max 25MB) and MIME types, issuing signed upload destination URLs.
   - `POST /api/drafts/[id]/finalize-upload`: Confirms upload ownership and enqueues durable processing jobs.
 - **Trusted Media Sanitization** (`src/lib/media/sanitizer.ts`):
   - Magic byte validation for JPEG, PNG, WebP, and MP4 containers.

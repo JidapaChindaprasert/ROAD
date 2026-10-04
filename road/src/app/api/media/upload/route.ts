@@ -2,8 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { MediaItem } from "@/features/reports/types";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "video/mp4"];
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+const ALLOWED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "image/avif",
+  "video/mp4",
+  "video/webm",
+];
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: { code: "FILE_TOO_LARGE", message: "File exceeds 10MB limit." } },
+        { error: { code: "FILE_TOO_LARGE", message: "File exceeds 25MB limit." } },
         { status: 413 }
       );
     }

@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth/use-auth";
 import { isDemoMode } from "@/lib/env";
+import { compressImageForUpload, fileToDataUrl } from "@/lib/media/client-optimizer";
 
 /** Generate a unique media ID */
 function generateMediaId(): string {
@@ -112,29 +113,34 @@ export function ReportWizard() {
     const f = files[0];
     if (!f) return;
 
+    // 1. Optimize image client-side to prevent 413 Payload Too Large and speed up upload/AI processing
+    let uploadFile = f;
+    if (f.type.startsWith("image/")) {
+      try {
+        uploadFile = await compressImageForUpload(f, { maxDimension: 1600, quality: 0.85 });
+      } catch (optErr) {
+        console.warn("Client image optimization failed, using original file:", optErr);
+      }
+    }
+
     let item: MediaItem | null = null;
     if (repository.uploadMedia) {
       try {
-        item = await repository.uploadMedia(f);
+        item = await repository.uploadMedia(uploadFile);
       } catch (uploadErr) {
         console.warn("Remote storage upload failed, falling back to data URL:", uploadErr);
       }
     }
 
     if (!item) {
-      const dataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => resolve(URL.createObjectURL(f));
-        reader.readAsDataURL(f);
-      });
+      const dataUrl = await fileToDataUrl(uploadFile);
       item = {
         id: generateMediaId(),
         url: dataUrl,
         thumbnailUrl: dataUrl,
-        mimeType: f.type || "image/jpeg",
-        fileName: f.name,
-        byteSize: f.size,
+        mimeType: uploadFile.type || "image/jpeg",
+        fileName: uploadFile.name,
+        byteSize: uploadFile.size,
         isSanitized: true,
         createdAt: new Date().toISOString(),
       };

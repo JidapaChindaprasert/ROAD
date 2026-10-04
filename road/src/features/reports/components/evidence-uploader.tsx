@@ -19,7 +19,7 @@ export function EvidenceUploader({
   onAddFiles,
   onRemoveFile,
   maxFiles = 5,
-  maxFileSizeMb = 10,
+  maxFileSizeMb = 25,
   className = "",
 }: EvidenceUploaderProps) {
   const [dragActive, setDragActive] = React.useState(false);
@@ -27,17 +27,32 @@ export function EvidenceUploader({
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const cameraInputRef = React.useRef<HTMLInputElement | null>(null);
 
+  const isSupportedType = (file: File) => {
+    const validTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/heic",
+      "image/heif",
+      "image/avif",
+      "video/mp4",
+      "video/webm",
+    ];
+    if (file.type && validTypes.includes(file.type.toLowerCase())) return true;
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    return ["jpg", "jpeg", "png", "webp", "heic", "heif", "avif", "mp4", "webm"].includes(ext || "");
+  };
+
   const validateAndAddFiles = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     setUploadError(null);
 
     const validFiles: File[] = [];
     const maxSizeBytes = maxFileSizeMb * 1024 * 1024;
-    const validTypes = ["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm"];
 
     if (maxFiles === 1) {
       const file = fileList[0];
-      if (!validTypes.includes(file.type)) {
+      if (!isSupportedType(file)) {
         setUploadError(`Unsupported file format: ${file.name}. Please upload JPG, PNG, WebP or MP4.`);
         return;
       }
@@ -59,7 +74,7 @@ export function EvidenceUploader({
       }
 
       // Check format
-      if (!validTypes.includes(file.type)) {
+      if (!isSupportedType(file)) {
         setUploadError(`Unsupported file format: ${file.name}. Please upload JPG, PNG, WebP or MP4.`);
         continue;
       }
