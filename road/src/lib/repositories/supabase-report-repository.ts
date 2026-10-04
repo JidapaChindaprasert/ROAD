@@ -83,8 +83,12 @@ export class SupabaseReportRepository implements IReportRepository {
                   const firstMedia = reportMedia[0];
                   const rawPath = firstMedia.approved_public_derivative_path || firstMedia.sanitized_path || firstMedia.private_original_path;
                   if (rawPath) {
-                    const { data: urlData } = supabase.storage.from("report-evidence").getPublicUrl(rawPath);
-                    row.thumbnail_url = urlData.publicUrl;
+                    if (rawPath.startsWith("http")) {
+                      row.thumbnail_url = rawPath;
+                    } else {
+                      const { data: urlData } = supabase.storage.from("report-evidence").getPublicUrl(rawPath);
+                      row.thumbnail_url = urlData.publicUrl;
+                    }
                   }
                 }
               }
@@ -140,8 +144,12 @@ export class SupabaseReportRepository implements IReportRepository {
                 const firstMedia = reportMedia[0];
                 const rawPath = firstMedia.approved_public_derivative_path || firstMedia.sanitized_path || firstMedia.private_original_path;
                 if (rawPath) {
-                  const { data: urlData } = supabase.storage.from("report-evidence").getPublicUrl(rawPath);
-                  row.thumbnail_url = urlData.publicUrl;
+                  if (rawPath.startsWith("http")) {
+                    row.thumbnail_url = rawPath;
+                  } else {
+                    const { data: urlData } = supabase.storage.from("report-evidence").getPublicUrl(rawPath);
+                    row.thumbnail_url = urlData.publicUrl;
+                  }
                 }
               }
             }
@@ -292,6 +300,7 @@ export class SupabaseReportRepository implements IReportRepository {
       media: media || [],
       aiAnalysis: aiList?.[0] || null,
       publicUrlResolver: (path) => {
+        if (path.startsWith("http")) return path;
         const { data } = supabase.storage.from("report-evidence").getPublicUrl(path);
         return data.publicUrl;
       },
@@ -315,6 +324,7 @@ export class SupabaseReportRepository implements IReportRepository {
       isStaff: true,
       media: r.media,
       publicUrlResolver: (path: string) => {
+        if (path.startsWith("http")) return path;
         const { data } = supabase.storage.from("report-evidence").getPublicUrl(path);
         return data.publicUrl;
       }
@@ -370,6 +380,7 @@ export class SupabaseReportRepository implements IReportRepository {
           currentUserId: targetUserId,
           media: r.media,
           publicUrlResolver: (path: string) => {
+            if (path.startsWith("http")) return path;
             const { data } = supabase.storage.from("report-evidence").getPublicUrl(path);
             return data.publicUrl;
           }
