@@ -107,11 +107,14 @@ export function ClassificationPanel({
         {/* Labels pill list */}
         {analysis.labels && analysis.labels.length > 1 && (
           <div className="flex flex-wrap gap-1.5 shrink-0">
-            {analysis.labels.map((lbl, idx) => (
-              <Badge key={idx} variant="outline" size="sm" className="text-[11px]">
-                {lbl.category}
-              </Badge>
-            ))}
+            {analysis.labels.map((lbl, idx) => {
+              const labelMeta = DAMAGE_CATEGORY_CONFIG[lbl.category] || DAMAGE_CATEGORY_CONFIG.other;
+              return (
+                <Badge key={idx} variant="outline" size="sm" className="text-[11px]">
+                  {labelMeta.shortLabel}
+                </Badge>
+              );
+            })}
           </div>
         )}
       </div>
