@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application files and model
 COPY main.py .
 COPY best_v5.pt .
+RUN cp best_v5.pt best_v3.pt && cp best_v5.pt best.pt
 
 # Set environment defaults
 ENV MODEL_PATH=best_v5.pt

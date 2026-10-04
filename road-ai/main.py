@@ -11,7 +11,15 @@ from PIL import Image
 from ultralytics import YOLO
 
 MODEL_NAME = "yolo11s-road-v5"
-MODEL_PATH = os.getenv("MODEL_PATH", "best_v5.pt")
+requested_path = os.getenv("MODEL_PATH", "best_v5.pt")
+if os.path.exists(requested_path):
+    MODEL_PATH = requested_path
+elif os.path.exists("best_v5.pt"):
+    MODEL_PATH = "best_v5.pt"
+elif os.path.exists("best.pt"):
+    MODEL_PATH = "best.pt"
+else:
+    MODEL_PATH = requested_path
 CONF = float(os.getenv("CONF", "0.35"))
 IOU = float(os.getenv("IOU", "0.45"))
 TTA = os.getenv("TTA", "0") == "1"
