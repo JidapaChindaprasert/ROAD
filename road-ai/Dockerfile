@@ -18,10 +18,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files and model
 COPY main.py .
-COPY best_v3.pt .
+COPY best_v5.pt .
 
 # Set environment defaults
-ENV MODEL_PATH=best_v3.pt
+ENV MODEL_PATH=best_v5.pt
 ENV PORT=7860
 ENV PYTHONUNBUFFERED=1
 

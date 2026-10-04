@@ -49,7 +49,7 @@ weights/
 road-ai/*
 !road-ai/main.py
 !road-ai/requirements.txt
-!road-ai/best_v3.pt
+!road-ai/best_v5.pt
 !road-ai/Dockerfile
 !road-ai/.dockerignore
 !road-ai/README.md

@@ -364,37 +364,20 @@ export class SupabaseReportRepository implements IReportRepository {
   }
 
   async uploadMedia(file: File): Promise<MediaItem> {
-    const supabase = this.getClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const formData = new FormData();
+    formData.append("file", file);
 
-    const fileExt = file.name.split(".").pop() || "jpg";
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
-    const filePath = `${user?.id || "anonymous"}/${fileName}`;
+    const res = await fetch("/api/media/upload", {
+      method: "POST",
+      body: formData,
+    });
 
-    const { error: uploadError } = await supabase.storage
-      .from("report-evidence")
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-    if (uploadError) {
-      throw new Error(`Storage upload failed: ${uploadError.message}`);
+    if (res.ok) {
+      const json = await res.json();
+      if (json.data) return json.data;
     }
 
-    const { data } = supabase.storage.from("report-evidence").getPublicUrl(filePath);
-
-    return {
-      id: fileName,
-      url: data.publicUrl,
-      thumbnailUrl: data.publicUrl,
-      mimeType: file.type,
-      fileName: file.name,
-      byteSize: file.size,
-      isSanitized: true,
-      createdAt: new Date().toISOString(),
-    };
+    const errJson = await res.json().catch(() => ({}));
+    throw new Error(errJson?.error?.message || `Storage upload failed with status ${res.status}`);
   }
 }

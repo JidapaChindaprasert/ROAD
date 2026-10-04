@@ -18,7 +18,7 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:types": "supabase gen types typescript --local > src/types/database.ts",
-    "ai:start": "cd ../road-ai && MODEL_PATH=best_v3.pt ./venv/bin/uvicorn main:app --host 0.0.0.0 --port 7860 --reload",
+    "ai:start": "cd ../road-ai && MODEL_PATH=best_v5.pt ./venv/bin/uvicorn main:app --host 0.0.0.0 --port 7860 --reload",
     "verify": "npm run lint && npm run typecheck && npm run test && npm run build"
   },
   "dependencies": {

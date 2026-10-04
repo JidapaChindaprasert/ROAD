@@ -10,8 +10,8 @@ from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from PIL import Image
 from ultralytics import YOLO
 
-MODEL_NAME = "yolo11s-road-v1"
-MODEL_PATH = os.getenv("MODEL_PATH", "best_v3.pt")
+MODEL_NAME = "yolo11s-road-v5"
+MODEL_PATH = os.getenv("MODEL_PATH", "best_v5.pt")
 CONF = float(os.getenv("CONF", "0.35"))
 IOU = float(os.getenv("IOU", "0.45"))
 TTA = os.getenv("TTA", "0") == "1"
