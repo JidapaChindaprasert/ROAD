@@ -263,7 +263,18 @@ export function ThaiRepairRequestModal({
         >
           {/* Top Center: Official Royal Thai Garuda Emblem (ตราครุฑ) */}
           <div className="flex flex-col items-center justify-center pb-2 text-center">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Garuda_Emblem_of_Thailand.svg/200px-Garuda_Emblem_of_Thailand.svg.png" crossOrigin="anonymous" alt="ตราครุฑ" className="w-16 h-16 object-contain" />
+            <img 
+              src="/garuda.jpg" 
+              crossOrigin="anonymous" 
+              alt="ตราครุฑ" 
+              className="w-16 h-16 sm:w-20 sm:h-20 object-contain grayscale mix-blend-multiply" 
+              onError={(e) => {
+                const target = e.currentTarget;
+                if (!target.src.includes("wikipedia")) {
+                  target.src = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/Garuda_Emblem_of_Thailand.svg/200px-Garuda_Emblem_of_Thailand.svg.png";
+                }
+              }}
+            />
           </div>
 
           {/* Header Right: Written At & Date */}

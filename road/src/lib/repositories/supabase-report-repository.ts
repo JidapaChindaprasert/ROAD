@@ -59,22 +59,33 @@ export class SupabaseReportRepository implements IReportRepository {
 
       const featureRows = data as DbPublicFeatureRow[] || [];
       if (featureRows.length > 0) {
-        const reportIds = featureRows.map((r) => r.report_id);
-        const { data: mediaRows } = await supabase
-          .from("report_media")
-          .select("report_id, sanitized_path, approved_public_derivative_path, private_original_path")
-          .in("report_id", reportIds);
-          
-        if (mediaRows && mediaRows.length > 0) {
-          for (const row of featureRows) {
-            if (!row.thumbnail_url) {
-              const reportMedia = mediaRows.filter((m) => m.report_id === row.report_id);
-              if (reportMedia.length > 0) {
-                const firstMedia = reportMedia[0];
-                const rawPath = firstMedia.approved_public_derivative_path || firstMedia.sanitized_path || firstMedia.private_original_path;
-                if (rawPath) {
-                  const { data: urlData } = supabase.storage.from("reports").getPublicUrl(rawPath);
-                  row.thumbnail_url = urlData.publicUrl;
+        // 1. Convert any raw paths already in thumbnail_url to full URLs
+        for (const row of featureRows) {
+          if (row.thumbnail_url && !row.thumbnail_url.startsWith("http") && !row.thumbnail_url.startsWith("data:")) {
+            const { data: urlData } = supabase.storage.from("reports").getPublicUrl(row.thumbnail_url);
+            row.thumbnail_url = urlData.publicUrl;
+          }
+        }
+
+        // 2. Fetch media for rows that still have no thumbnail_url
+        const missingMediaIds = featureRows.filter(r => !r.thumbnail_url).map(r => r.report_id);
+        if (missingMediaIds.length > 0) {
+          const { data: mediaRows } = await supabase
+            .from("report_media")
+            .select("report_id, sanitized_path, approved_public_derivative_path, private_original_path")
+            .in("report_id", missingMediaIds);
+            
+          if (mediaRows && mediaRows.length > 0) {
+            for (const row of featureRows) {
+              if (!row.thumbnail_url) {
+                const reportMedia = mediaRows.filter((m) => m.report_id === row.report_id);
+                if (reportMedia.length > 0) {
+                  const firstMedia = reportMedia[0];
+                  const rawPath = firstMedia.approved_public_derivative_path || firstMedia.sanitized_path || firstMedia.private_original_path;
+                  if (rawPath) {
+                    const { data: urlData } = supabase.storage.from("reports").getPublicUrl(rawPath);
+                    row.thumbnail_url = urlData.publicUrl;
+                  }
                 }
               }
             }
@@ -105,22 +116,33 @@ export class SupabaseReportRepository implements IReportRepository {
 
     const featureRows = data as DbPublicFeatureRow[] || [];
     if (featureRows.length > 0) {
-      const reportIds = featureRows.map((r) => r.report_id);
-      const { data: mediaRows } = await supabase
-        .from("report_media")
-        .select("report_id, sanitized_path, approved_public_derivative_path, private_original_path")
-        .in("report_id", reportIds);
-        
-      if (mediaRows && mediaRows.length > 0) {
-        for (const row of featureRows) {
-          if (!row.thumbnail_url) {
-            const reportMedia = mediaRows.filter((m) => m.report_id === row.report_id);
-            if (reportMedia.length > 0) {
-              const firstMedia = reportMedia[0];
-              const rawPath = firstMedia.approved_public_derivative_path || firstMedia.sanitized_path || firstMedia.private_original_path;
-              if (rawPath) {
-                const { data: urlData } = supabase.storage.from("reports").getPublicUrl(rawPath);
-                row.thumbnail_url = urlData.publicUrl;
+      // 1. Convert any raw paths already in thumbnail_url to full URLs
+      for (const row of featureRows) {
+        if (row.thumbnail_url && !row.thumbnail_url.startsWith("http") && !row.thumbnail_url.startsWith("data:")) {
+          const { data: urlData } = supabase.storage.from("reports").getPublicUrl(row.thumbnail_url);
+          row.thumbnail_url = urlData.publicUrl;
+        }
+      }
+
+      // 2. Fetch media for rows that still have no thumbnail_url
+      const missingMediaIds = featureRows.filter(r => !r.thumbnail_url).map(r => r.report_id);
+      if (missingMediaIds.length > 0) {
+        const { data: mediaRows } = await supabase
+          .from("report_media")
+          .select("report_id, sanitized_path, approved_public_derivative_path, private_original_path")
+          .in("report_id", missingMediaIds);
+          
+        if (mediaRows && mediaRows.length > 0) {
+          for (const row of featureRows) {
+            if (!row.thumbnail_url) {
+              const reportMedia = mediaRows.filter((m) => m.report_id === row.report_id);
+              if (reportMedia.length > 0) {
+                const firstMedia = reportMedia[0];
+                const rawPath = firstMedia.approved_public_derivative_path || firstMedia.sanitized_path || firstMedia.private_original_path;
+                if (rawPath) {
+                  const { data: urlData } = supabase.storage.from("reports").getPublicUrl(rawPath);
+                  row.thumbnail_url = urlData.publicUrl;
+                }
               }
             }
           }
