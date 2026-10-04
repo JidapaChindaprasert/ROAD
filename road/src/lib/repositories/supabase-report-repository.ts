@@ -62,7 +62,7 @@ export class SupabaseReportRepository implements IReportRepository {
         // 1. Convert any raw paths already in thumbnail_url to full URLs
         for (const row of featureRows) {
           if (row.thumbnail_url && !row.thumbnail_url.startsWith("http") && !row.thumbnail_url.startsWith("data:")) {
-            const { data: urlData } = supabase.storage.from("reports").getPublicUrl(row.thumbnail_url);
+            const { data: urlData } = supabase.storage.from("report-evidence").getPublicUrl(row.thumbnail_url);
             row.thumbnail_url = urlData.publicUrl;
           }
         }
@@ -83,7 +83,7 @@ export class SupabaseReportRepository implements IReportRepository {
                   const firstMedia = reportMedia[0];
                   const rawPath = firstMedia.approved_public_derivative_path || firstMedia.sanitized_path || firstMedia.private_original_path;
                   if (rawPath) {
-                    const { data: urlData } = supabase.storage.from("reports").getPublicUrl(rawPath);
+                    const { data: urlData } = supabase.storage.from("report-evidence").getPublicUrl(rawPath);
                     row.thumbnail_url = urlData.publicUrl;
                   }
                 }
@@ -119,7 +119,7 @@ export class SupabaseReportRepository implements IReportRepository {
       // 1. Convert any raw paths already in thumbnail_url to full URLs
       for (const row of featureRows) {
         if (row.thumbnail_url && !row.thumbnail_url.startsWith("http") && !row.thumbnail_url.startsWith("data:")) {
-          const { data: urlData } = supabase.storage.from("reports").getPublicUrl(row.thumbnail_url);
+          const { data: urlData } = supabase.storage.from("report-evidence").getPublicUrl(row.thumbnail_url);
           row.thumbnail_url = urlData.publicUrl;
         }
       }
@@ -140,7 +140,7 @@ export class SupabaseReportRepository implements IReportRepository {
                 const firstMedia = reportMedia[0];
                 const rawPath = firstMedia.approved_public_derivative_path || firstMedia.sanitized_path || firstMedia.private_original_path;
                 if (rawPath) {
-                  const { data: urlData } = supabase.storage.from("reports").getPublicUrl(rawPath);
+                  const { data: urlData } = supabase.storage.from("report-evidence").getPublicUrl(rawPath);
                   row.thumbnail_url = urlData.publicUrl;
                 }
               }
@@ -315,7 +315,7 @@ export class SupabaseReportRepository implements IReportRepository {
       isStaff: true,
       media: r.media,
       publicUrlResolver: (path: string) => {
-        const { data } = supabase.storage.from("reports").getPublicUrl(path);
+        const { data } = supabase.storage.from("report-evidence").getPublicUrl(path);
         return data.publicUrl;
       }
     }));
@@ -370,7 +370,7 @@ export class SupabaseReportRepository implements IReportRepository {
           currentUserId: targetUserId,
           media: r.media,
           publicUrlResolver: (path: string) => {
-            const { data } = supabase.storage.from("reports").getPublicUrl(path);
+            const { data } = supabase.storage.from("report-evidence").getPublicUrl(path);
             return data.publicUrl;
           }
         });
