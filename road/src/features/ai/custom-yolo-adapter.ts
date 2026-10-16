@@ -12,6 +12,7 @@ export interface CustomYoloClassificationParams {
 export function mapYoloClassToCategory(className: string | null | undefined): DamageCategory {
   if (!className) return "uncertain";
   const normalized = className.toLowerCase().trim().replace(/[-_\s]+/g, "_");
+  if (normalized.includes("uncertain")) return "uncertain";
 
   if (
     normalized.includes("subsidence") ||

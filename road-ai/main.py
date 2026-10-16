@@ -1,39 +1,61 @@
-"""ROAD inference API.
-Run:  uvicorn main:app --host 0.0.0.0 --port 7860
-Env (all optional):
-  MODEL_PATH=best.pt   CONF=0.35   IOU=0.45   TTA=0   API_TOKEN=<secret>
+"""ROAD Dual-Model Inference API (FastAPI).
+
+Runs Model 1 (Context & Structure Aware) and Model 2 (Damage Specialist) in parallel,
+then applies spatial grounding, context weighting, and conflict/swap resolution.
+
+Run:
+  uvicorn main:app --host 0.0.0.0 --port 7860
 """
+
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import io
 import os
 import torch
+from typing import Optional
 
 # Limit PyTorch to 1 CPU thread to avoid memory spikes and thrashing on containerized free tier (512MB RAM)
 torch.set_num_threads(1)
 
+import cv2
 from fastapi import FastAPI, File, Header, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+import numpy as np
 from PIL import Image
 from ultralytics import YOLO
 
-MODEL_NAME = "yolo11s-road-v5"
-requested_path = os.getenv("MODEL_PATH", "best_v5.pt")
-if os.path.exists(requested_path):
-    MODEL_PATH = requested_path
-elif os.path.exists("best_v5.pt"):
-    MODEL_PATH = "best_v5.pt"
-elif os.path.exists("best.pt"):
-    MODEL_PATH = "best.pt"
-else:
-    MODEL_PATH = requested_path
+from ensemble import fuse_dual_predictions, normalize_class_name
 
-# Lower threshold to 0.20 so cracks, sidewalks, and subsidence are detected alongside potholes
+# Configuration & Path Resolution
+def resolve_model_path(env_var: str, candidates: list[str]) -> str:
+    from_env = os.getenv(env_var)
+    if from_env and os.path.exists(from_env):
+        return from_env
+    for cand in candidates:
+        if os.path.exists(cand):
+            return cand
+    return candidates[0]
+
+MODEL1_PATH = resolve_model_path("MODEL1_PATH", [
+    "model1/best.pt",
+    "model1/best_v1.pt",
+    "best.pt",
+])
+
+MODEL2_PATH = resolve_model_path("MODEL2_PATH", [
+    "model2/best_map50.pt",
+    "model2/best.pt",
+    "best_v5.pt",
+    "best.pt",
+])
+
 CONF = float(os.getenv("CONF", "0.20"))
 IOU = float(os.getenv("IOU", "0.45"))
 TTA = os.getenv("TTA", "0") == "1"
-API_TOKEN = os.getenv("API_TOKEN")  # if set, requests must send X-API-Token
+API_TOKEN = os.getenv("API_TOKEN")
 
-from fastapi.middleware.cors import CORSMiddleware
-
-app = FastAPI(title="ROAD AI Vision Engine")
+app = FastAPI(title="ROAD AI Dual-Model Vision Engine")
 
 app.add_middleware(
     CORSMiddleware,
@@ -43,48 +65,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model = YOLO(MODEL_PATH)
+print(f"Loading Model 1 (Context & Damage): {MODEL1_PATH}")
+model1 = YOLO(MODEL1_PATH)
+print(f"Model 1 loaded. Classes: {model1.names}")
 
-# Normalise dataset class names to the PRD / database names.
-CANON = {
-    "pothole": "pothole",
-    "crack": "crack",
-    "subsidence": "subsidence",
-    "sidewalk damage": "sidewalk damage",
-    "damaged sidewalk": "sidewalk damage",
-}
-IGNORE = {"road"}  # classes in the dataset that are not part of the PRD
+print(f"Loading Model 2 (Damage Specialist): {MODEL2_PATH}")
+model2 = YOLO(MODEL2_PATH)
+print(f"Model 2 loaded. Classes: {model2.names}")
 
-TH = {
-    "pothole": "หลุมบ่อ",
-    "crack": "รอยแตกร้าว",
-    "subsidence": "ถนนทรุดตัว",
-    "sidewalk damage": "ทางเดินพังเสียหาย",
-}
+executor = ThreadPoolExecutor(max_workers=2)
 
 
-def canon(name: str):
-    n = name.lower().replace("_", " ").strip()
-    if n in IGNORE:
-        return None
-    return CANON.get(n, n)
+def run_single_inference(m: YOLO, img: Image.Image, conf: float, iou: float, tta: bool):
+    return m.predict(img, imgsz=640, conf=conf, iou=iou, augment=tta, verbose=False)[0]
 
 
-def severity(category: str, area_ratio: float) -> str:
-    """Heuristic only - tune with real labelled severity data."""
-    if area_ratio > 0.15 or (category == "subsidence" and area_ratio > 0.05):
-        return "high"
-    if area_ratio > 0.04:
-        return "medium"
-    return "low"
+async def run_parallel_inference(img: Image.Image, conf: float = CONF, iou: float = IOU, tta: bool = TTA):
+    loop = asyncio.get_running_loop()
+    f1 = loop.run_in_executor(executor, run_single_inference, model1, img, conf, iou, tta)
+    f2 = loop.run_in_executor(executor, run_single_inference, model2, img, conf, iou, tta)
+    return await asyncio.gather(f1, f2)
 
 
 @app.get("/")
 def root():
     return {
-        "name": "ROAD AI Vision Engine",
+        "name": "ROAD AI Dual-Model Vision Engine",
         "status": "online",
-        "model": MODEL_NAME,
+        "architecture": "parallel_ensemble_context_grounded",
+        "model1": {"path": MODEL1_PATH, "classes": model1.names},
+        "model2": {"path": MODEL2_PATH, "classes": model2.names},
         "health": "/health",
         "docs": "/docs",
     }
@@ -92,78 +102,132 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "model": MODEL_NAME, "classes": model.names}
+    return {
+        "status": "ok",
+        "model1": {"path": MODEL1_PATH, "classes": model1.names},
+        "model2": {"path": MODEL2_PATH, "classes": model2.names},
+    }
 
 
 @app.post("/predict")
 async def predict(
     file: UploadFile = File(...),
     conf: float = CONF,
-    x_api_token: str = Header(None),
+    x_api_token: Optional[str] = Header(None),
 ):
     if API_TOKEN and x_api_token != API_TOKEN:
         raise HTTPException(401, "Invalid token")
+
     try:
-        img = Image.open(io.BytesIO(await file.read())).convert("RGB")
+        raw_bytes = await file.read()
+        img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
     except Exception:
         raise HTTPException(400, "Invalid image")
 
     W, H = img.size
-    res = model.predict(img, imgsz=640, conf=conf, iou=IOU, augment=TTA, verbose=False)[0]
 
-    labels = []
-    for b in res.boxes:
-        cat = canon(model.names[int(b.cls)])
-        if cat is None:
-            continue
-        x1, y1, x2, y2 = b.xyxy[0].tolist()
-        labels.append({
-            "category": cat,
-            "score": round(float(b.conf), 4),
-            "boundingBox": {"x": round(x1), "y": round(y1),
-                            "width": round(x2 - x1), "height": round(y2 - y1)},
-            "_area": ((x2 - x1) * (y2 - y1)) / (W * H),
-        })
+    # Run Model 1 & Model 2 in parallel
+    res1, res2 = await run_parallel_inference(img, conf=conf, iou=IOU, tta=TTA)
 
-    if not labels:
-        return {"provider": "custom_yolo", "model": MODEL_NAME, "primaryCategory": None,
-                "suggestedSeverity": "low", "confidenceScore": 0.0, "labels": [],
-                "summary": "ระบบ AI ไม่พบความเสียหายในภาพนี้", "needsHumanReview": True}
+    # Fuse predictions with context grounding and conflict/swap resolution
+    result = fuse_dual_predictions(
+        res_model1=res1,
+        res_model2=res2,
+        img_width=W,
+        img_height=H,
+        conf_threshold=conf,
+        iou_match_threshold=IOU,
+    )
 
-    top = max(labels, key=lambda l: l["score"])
-    sev = severity(top["category"], max(l["_area"] for l in labels))
-    for l in labels:
-        l.pop("_area")
-
-    return {
-        "provider": "custom_yolo",
-        "model": MODEL_NAME,
-        "primaryCategory": top["category"],
-        "suggestedSeverity": sev,
-        "confidenceScore": top["score"],
-        "labels": labels,
-        "summary": f"ระบบ AI ตรวจพบ{TH.get(top['category'], top['category'])}บนผิวทาง "
-                   f"(ความมั่นใจ {round(top['score'] * 100)}%)",
-        "needsHumanReview": top["score"] < 0.5,
-    }
-
-
-
-# ---- Debug endpoint: returns the image with boxes drawn ----
-import cv2
-from fastapi.responses import Response
+    return result
 
 
 @app.post("/predict/image")
-async def predict_image(file: UploadFile = File(...), x_api_token: str = Header(None)):
+async def predict_image(
+    file: UploadFile = File(...),
+    conf: float = CONF,
+    x_api_token: Optional[str] = Header(None),
+):
+    """Debug visualizer: Draws surface regions (dashed/light) and fused damages."""
     if API_TOKEN and x_api_token != API_TOKEN:
         raise HTTPException(401, "Invalid token")
+
     try:
-        img = Image.open(io.BytesIO(await file.read())).convert("RGB")
+        raw_bytes = await file.read()
+        img = Image.open(io.BytesIO(raw_bytes)).convert("RGB")
     except Exception:
         raise HTTPException(400, "Invalid image")
-    res = model.predict(img, imgsz=640, conf=CONF, iou=IOU, augment=TTA, verbose=False)[0]
-    ok, buf = cv2.imencode(".jpg", res.plot())  # res.plot() returns the image with boxes (BGR)
+
+    W, H = img.size
+    res1, res2 = await run_parallel_inference(img, conf=conf, iou=IOU, tta=TTA)
+
+    fused = fuse_dual_predictions(
+        res_model1=res1,
+        res_model2=res2,
+        img_width=W,
+        img_height=H,
+        conf_threshold=conf,
+        iou_match_threshold=IOU,
+    )
+
+    # Convert PIL Image to OpenCV BGR format for drawing
+    cv_img = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+
+    # 1. Draw Surface boundaries from Model 1 in subtle tones
+    for b in res1.boxes:
+        name = normalize_class_name(model1.names[int(b.cls)])
+        if name in {"road", "sidewalk"}:
+            x1, y1, x2, y2 = map(int, b.xyxy[0].tolist())
+            color = (60, 180, 75) if name == "road" else (240, 150, 30)  # BGR
+            cv2.rectangle(cv_img, (x1, y1), (x2, y2), color, 2)
+            cv2.putText(
+                cv_img,
+                f"[{name.upper()} {float(b.conf):.2f}]",
+                (x1 + 4, max(y1 + 18, 20)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                color,
+                1,
+                cv2.LINE_AA,
+            )
+
+    # 2. Draw Fused Damage Bounding Boxes with high visibility
+    for label in fused.get("labels", []):
+        bb = label["boundingBox"]
+        x1, y1 = bb["x"], bb["y"]
+        x2, y2 = x1 + bb["width"], y1 + bb["height"]
+        cat = label["category"]
+        score = label["score"]
+        ctx = label.get("surfaceContext", "")
+
+        # Color coding damages: Red for pothole/subsidence, Orange for sidewalk, Amber for crack
+        if cat in {"pothole", "subsidence"}:
+            box_color = (0, 0, 230)  # Bright Red
+        elif cat == "sidewalk damage":
+            box_color = (0, 140, 255)  # Orange
+        else:
+            box_color = (0, 215, 255)  # Amber
+
+        cv2.rectangle(cv_img, (x1, y1), (x2, y2), box_color, 3)
+        tag = f"{cat} {round(score * 100)}% ({ctx})"
+        (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
+        cv2.rectangle(cv_img, (x1, max(0, y1 - th - 6)), (x1 + tw + 6, max(th + 6, y1)), box_color, -1)
+        cv2.putText(
+            cv_img,
+            tag,
+            (x1 + 3, max(y1 - 4, th)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 255),
+            2,
+            cv2.LINE_AA,
+        )
+
+    # Encode back to JPEG
+    ok, buf = cv2.imencode(".jpg", cv_img)
+    if not ok:
+        raise HTTPException(500, "Image encoding error")
+
     return Response(content=buf.tobytes(), media_type="image/jpeg")
 
 
@@ -171,4 +235,3 @@ if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 7860))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
-

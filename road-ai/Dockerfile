@@ -16,13 +16,16 @@ RUN pip install --no-cache-dir torch torchvision --index-url https://download.py
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files and model
+# Copy application files and models
 COPY main.py .
+COPY ensemble.py .
+COPY model1 ./model1
+COPY model2 ./model2
 COPY best_v5.pt .
-RUN cp best_v5.pt best_v3.pt && cp best_v5.pt best.pt
 
 # Set environment defaults
-ENV MODEL_PATH=best_v5.pt
+ENV MODEL1_PATH=model1/best.pt
+ENV MODEL2_PATH=model2/best_map50.pt
 ENV PORT=7860
 ENV PYTHONUNBUFFERED=1
 ENV CONF=0.20
