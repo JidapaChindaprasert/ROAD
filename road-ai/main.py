@@ -65,6 +65,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import gc
+
 print(f"Loading Model 1 (Context & Damage): {MODEL1_PATH}")
 model1 = YOLO(MODEL1_PATH)
 print(f"Model 1 loaded. Classes: {model1.names}")
@@ -72,19 +74,23 @@ print(f"Model 1 loaded. Classes: {model1.names}")
 print(f"Loading Model 2 (Damage Specialist): {MODEL2_PATH}")
 model2 = YOLO(MODEL2_PATH)
 print(f"Model 2 loaded. Classes: {model2.names}")
+gc.collect()
 
-executor = ThreadPoolExecutor(max_workers=2)
+executor = ThreadPoolExecutor(max_workers=1)
 
 
+@torch.inference_mode()
 def run_single_inference(m: YOLO, img: Image.Image, conf: float, iou: float, tta: bool):
     return m.predict(img, imgsz=640, conf=conf, iou=iou, augment=tta, verbose=False)[0]
 
 
 async def run_parallel_inference(img: Image.Image, conf: float = CONF, iou: float = IOU, tta: bool = TTA):
     loop = asyncio.get_running_loop()
-    f1 = loop.run_in_executor(executor, run_single_inference, model1, img, conf, iou, tta)
-    f2 = loop.run_in_executor(executor, run_single_inference, model2, img, conf, iou, tta)
-    return await asyncio.gather(f1, f2)
+    def _run():
+        r1 = run_single_inference(model1, img, conf, iou, tta)
+        r2 = run_single_inference(model2, img, conf, iou, tta)
+        return r1, r2
+    return await loop.run_in_executor(executor, _run)
 
 
 @app.get("/")

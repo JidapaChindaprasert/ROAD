@@ -32,6 +32,4 @@ ENV CONF=0.20
 ENV OMP_NUM_THREADS=1
 ENV MKL_NUM_THREADS=1
 
-EXPOSE 7860
-
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-7860}"]
