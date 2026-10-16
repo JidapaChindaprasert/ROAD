@@ -65,3 +65,6 @@ road-ai/*
 *.py[cod]
 *$py.class
 *.Zone.Identifier
+
+# Hugging Face deployment repo
+hf-road-ai/

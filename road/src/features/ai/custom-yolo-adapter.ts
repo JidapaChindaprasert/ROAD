@@ -117,6 +117,8 @@ export async function classifyWithCustomYolo(
   const headers: Record<string, string> = {};
   if (apiToken) {
     headers["X-API-Token"] = apiToken;
+    // Hugging Face Spaces uses standard Bearer token authentication
+    headers["Authorization"] = `Bearer ${apiToken}`;
   }
 
   let response: Response;
