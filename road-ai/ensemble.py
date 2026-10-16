@@ -150,6 +150,8 @@ def fuse_dual_predictions(
     img_width: int,
     img_height: int,
     conf_threshold: float = 0.20,
+    surface_conf_threshold: float = 0.45,
+    surface_min_coverage: float = 0.20,
     iou_match_threshold: float = 0.35,
 ) -> Dict[str, Any]:
     """Fuses predictions from Model 1 (Context + Damage) and Model 2 (Damage Specialist)."""
@@ -160,15 +162,17 @@ def fuse_dual_predictions(
     _, m2_damages = parse_yolo_detections(res_model2, res_model2.names)
 
     # 2. Analyze Surface Context (Model 1)
-    road_surfaces = [s for s in m1_surfaces if s["category"] == "road" and s["score"] >= conf_threshold]
-    sidewalk_surfaces = [s for s in m1_surfaces if s["category"] == "sidewalk" and s["score"] >= conf_threshold]
+    # Require strict confidence (>= 0.45) for road/sidewalk to prevent icons/graphics/indoor noise
+    road_surfaces = [s for s in m1_surfaces if s["category"] == "road" and s["score"] >= surface_conf_threshold]
+    sidewalk_surfaces = [s for s in m1_surfaces if s["category"] == "sidewalk" and s["score"] >= surface_conf_threshold]
 
     road_area = sum(s["area"] for s in road_surfaces)
     sidewalk_area = sum(s["area"] for s in sidewalk_surfaces)
     total_surface_area = road_area + sidewalk_area
     surface_coverage = total_surface_area / total_img_area if total_img_area > 0 else 0.0
 
-    has_surface = (len(road_surfaces) > 0 or len(sidewalk_surfaces) > 0) and surface_coverage >= 0.08
+    # Genuine road/sidewalk requires both confidence >= 0.45 and at least 20% image coverage
+    has_surface = (len(road_surfaces) > 0 or len(sidewalk_surfaces) > 0) and surface_coverage >= surface_min_coverage
 
     primary_surface = "unknown"
     if has_surface:

@@ -51,6 +51,8 @@ MODEL2_PATH = resolve_model_path("MODEL2_PATH", [
 ])
 
 CONF = float(os.getenv("CONF", "0.20"))
+SURFACE_CONF = float(os.getenv("SURFACE_CONF", "0.45"))
+SURFACE_MIN_COVERAGE = float(os.getenv("SURFACE_MIN_COVERAGE", "0.20"))
 IOU = float(os.getenv("IOU", "0.45"))
 TTA = os.getenv("TTA", "0") == "1"
 API_TOKEN = os.getenv("API_TOKEN")
@@ -142,6 +144,8 @@ async def predict(
         img_width=W,
         img_height=H,
         conf_threshold=conf,
+        surface_conf_threshold=SURFACE_CONF,
+        surface_min_coverage=SURFACE_MIN_COVERAGE,
         iou_match_threshold=IOU,
     )
 
@@ -173,6 +177,8 @@ async def predict_image(
         img_width=W,
         img_height=H,
         conf_threshold=conf,
+        surface_conf_threshold=SURFACE_CONF,
+        surface_min_coverage=SURFACE_MIN_COVERAGE,
         iou_match_threshold=IOU,
     )
 
