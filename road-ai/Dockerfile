@@ -26,10 +26,11 @@ COPY best_v5.pt .
 # Set environment defaults
 ENV MODEL1_PATH=model1/best.pt
 ENV MODEL2_PATH=model2/best_map50.pt
-ENV PORT=7860
 ENV PYTHONUNBUFFERED=1
 ENV CONF=0.20
 ENV OMP_NUM_THREADS=1
 ENV MKL_NUM_THREADS=1
 
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-7860}"]
+# HF Spaces requires the app to listen on exactly port 7860
+EXPOSE 7860
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
