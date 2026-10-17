@@ -41,30 +41,35 @@ road/next-env.d.ts
 .vercel/
 road/.vercel/
 
-# AI Training, weights & datasets
+# AI Training, local experiments & datasets
 runs/
 weights/
-
-# Ignore everything in road-ai except what is required for Render deployment
-road-ai/*
-!road-ai/main.py
-!road-ai/ensemble.py
-!road-ai/requirements.txt
-!road-ai/model1
-!road-ai/model1/best.pt
-!road-ai/model2
-!road-ai/model2/best_map50.pt
-!road-ai/model2/best.pt
-!road-ai/best_v5.pt
-!road-ai/Dockerfile
-!road-ai/.dockerignore
-!road-ai/README.md
+road-ai/
 
 # Python caches and metadata
 **/__pycache__/
 *.py[cod]
 *$py.class
 *.Zone.Identifier
+.venv/
+*/.venv/
+venv/
+*/venv/
 
-# Hugging Face deployment repo
-hf-road-ai/
+# Hugging Face internal git metadata
+hf-road-ai/.git_hf/
+
+# Working notes & temp files
+.agents/
+AGENTS.md
+SKILL.md
+CLAUDE.md
+road/AGENTS.md
+road/SKILL.md
+road/CLAUDE.md
+road/docs/
+road.txt
+initialize-road.sh
+road/patch_*.js
+road/query.*
+road/test_url.*

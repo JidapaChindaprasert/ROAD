@@ -17,6 +17,7 @@ import {
   mapDbReportToDetail,
   DbPublicFeatureRow,
   DbReportRow,
+  DbMediaRow,
 } from "@/lib/supabase/dto-mappers";
 
 export class SupabaseReportRepository implements IReportRepository {
@@ -314,7 +315,7 @@ export class SupabaseReportRepository implements IReportRepository {
       .select(`*, assigned_team:teams(id, name, public_display_name), media:report_media(*)`)
       .order("created_at", { ascending: false });
     if (error) return [];
-    return reports.map((r: any) => mapDbReportToDetail({
+    return (reports as unknown as (DbReportRow & { media?: DbMediaRow[]; public_location?: { coordinates?: [number, number] }; exact_location?: { coordinates?: [number, number] } })[]).map((r) => mapDbReportToDetail({
       ...r,
       public_longitude: r.public_location?.coordinates?.[0] ?? 100.5018,
       public_latitude: r.public_location?.coordinates?.[1] ?? 13.7563,
@@ -376,9 +377,9 @@ export class SupabaseReportRepository implements IReportRepository {
           exact_longitude: r.exact_location?.coordinates?.[0],
           exact_latitude: r.exact_location?.coordinates?.[1],
         };
-        return mapDbReportToDetail(reportRow as any, {
+        return mapDbReportToDetail(reportRow, {
           currentUserId: targetUserId,
-          media: r.media,
+          media: r.media as unknown as DbMediaRow[],
           publicUrlResolver: (path: string) => {
             if (path.startsWith("http")) return path;
             const { data } = supabase.storage.from("report-evidence").getPublicUrl(path);

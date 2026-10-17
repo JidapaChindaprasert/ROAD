@@ -21,7 +21,6 @@ COPY main.py .
 COPY ensemble.py .
 COPY model1 ./model1
 COPY model2 ./model2
-COPY best_v5.pt .
 
 # Set environment defaults
 ENV MODEL1_PATH=model1/best.pt

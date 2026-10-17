@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Working notes & temp files
+AGENTS.md
+SKILL.md
+CLAUDE.md
+docs/
+patch_*.js
+query.*
+test_url.*
