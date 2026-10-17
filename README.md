@@ -10,12 +10,13 @@ ROAD connects citizens with municipal public works departments. When citizens re
 
 ### System Architecture
 
-The project is organized into two primary components:
+The project is organized into three main components:
 
 ```
 ROAD/
 ├── road/            # Full-stack web application (Next.js 16 + React 19 + TypeScript)
-└── hf-road-ai/      # AI computer vision service (FastAPI + YOLOv11 Dual-Model Ensemble)
+├── hf-road-ai/      # Active AI inference service deployed on Hugging Face Spaces
+└── road-ai/         # Initial API for Render deployment & model training script (train.py)
 ```
 
 1. **`road/` (Frontend & Application Backend)**
@@ -25,12 +26,16 @@ ROAD/
    - Official Thai government repair petition generator (`หนังสือขอความอนุเคราะห์ซ่อมแซมถนน`) with Garuda emblem and A4 print layout.
    - Staff triage dashboard with role-based authentication and status workflows.
 
-2. **`hf-road-ai/` (AI Vision Engine)**
-   - FastAPI microservice deployed as a Docker container on Hugging Face Spaces.
+2. **`hf-road-ai/` (Active AI Vision Service — Hugging Face Spaces)**
+   - FastAPI microservice running in Docker on Hugging Face Spaces.
    - Dual-model YOLOv11 ensemble:
      - **Model 1** (`model1/best.pt`): Scene context and road structure detection.
-     - **Model 2** (`model2/best_map50.pt`): Fine-grained road damage specialist.
-   - Fuses predictions with confidence thresholds to identify damage categories (potholes, cracks, subsidence, surface wear).
+     - **Model 2** (`model2/best_map50.pt`): Road damage specialist (potholes, cracks, subsidence, damaged sidewalk).
+   - Fuses spatial bounding boxes and confidence scores in real time.
+
+3. **`road-ai/` (Initial Render Deployment & Model Training)**
+   - Initial FastAPI service built for Render hosting.
+   - Includes `train.py` for training and fine-tuning YOLOv11s models on GPU with Roboflow datasets.
 
 ---
 

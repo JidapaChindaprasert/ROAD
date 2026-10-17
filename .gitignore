@@ -44,7 +44,20 @@ road/.vercel/
 # AI Training, local experiments & datasets
 runs/
 weights/
-road-ai/
+
+# Selective tracking for road-ai (Render deployment and model training script)
+road-ai/*
+!road-ai/Dockerfile
+!road-ai/.dockerignore
+!road-ai/README.md
+!road-ai/main.py
+!road-ai/ensemble.py
+!road-ai/train.py
+!road-ai/requirements.txt
+!road-ai/model1/
+!road-ai/model1/best.pt
+!road-ai/model2/
+!road-ai/model2/best_map50.pt
 
 # Python caches and metadata
 **/__pycache__/

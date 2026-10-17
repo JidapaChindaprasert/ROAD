@@ -1,0 +1,35 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies for OpenCV and image processing
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 \
+    libglib2.0-0 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install lightweight PyTorch CPU first
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Copy dependencies and install
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application files and models
+COPY main.py .
+COPY ensemble.py .
+COPY model1 ./model1
+COPY model2 ./model2
+
+# Set environment defaults
+ENV MODEL1_PATH=model1/best.pt
+ENV MODEL2_PATH=model2/best_map50.pt
+ENV PYTHONUNBUFFERED=1
+ENV CONF=0.20
+ENV OMP_NUM_THREADS=1
+ENV MKL_NUM_THREADS=1
+
+# HF Spaces requires the app to listen on exactly port 7860
+EXPOSE 7860
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
